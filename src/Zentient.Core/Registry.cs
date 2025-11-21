@@ -1,0 +1,265 @@
+﻿// <copyright file="Registry.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+
+
+    /// <summary>
+    /// Provides factory methods for creating registry instances for managing concept objects in memory.
+    /// </summary>
+    /// <remarks>The Registry class supplies static methods to create new in-memory registries for types
+    /// implementing IConcept. Registries created through this class are suitable for scenarios where persistence is not
+    /// required and are typically used for testing, prototyping, or lightweight runtime management of concept
+    /// instances. The returned registries are thread-safe and support observer and tracing integration if
+    /// provided.</remarks>
+    public static class Registry
+    {
+        /// <summary>
+        /// Creates a new in-memory registry for storing and managing concept instances of the specified type.
+        /// </summary>
+        /// <typeparam name="T">The type of concept to be stored in the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        /// <param name="observer">An optional observer that receives notifications about registry changes. If <see langword="null"/>, no
+        /// notifications are sent.</param>
+        /// <param name="traceSink">An optional trace sink used to record diagnostic or tracing information. If <see langword="null"/>, tracing
+        /// is disabled.</param>
+        /// <returns>An in-memory implementation of <see cref="IRegistry{T}"/> for managing concept instances.</returns>
+        public static IRegistry<T> NewInMemory<T>(IRegistryObserver<T>? observer = null, ITraceSink? traceSink = null) where T : IConcept
+            => new InMemoryRegistryImpl<T>(observer, traceSink);
+
+        /// <summary>
+        /// Provides an in-memory implementation of the <see cref="IRegistry{T}"/> interface for managing concept instances by ID and name.
+        /// </summary>
+        /// <remarks>This implementation stores all registered items in memory and is suitable for
+        /// scenarios where persistence is not required. All operations are thread-safe. Name lookups are
+        /// case-insensitive, while ID lookups are case-sensitive. This class is intended for internal use and is not
+        /// designed for distributed or persistent scenarios.</remarks>
+        /// <typeparam name="T">The type of concept managed by the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        internal sealed class InMemoryRegistryImpl<T> : IRegistry<T> where T : IConcept
+        {
+            private readonly ConcurrentDictionary<string, T> _byId = new(StringComparer.Ordinal);
+            private readonly ConcurrentDictionary<string, string> _nameToId = new(StringComparer.OrdinalIgnoreCase);
+            private readonly ConcurrentDictionary<string, Lazy<Task<T>>> _inflight = new(StringComparer.Ordinal);
+            private readonly object _globalCreateLock = new();
+            private readonly IRegistryObserver<T>? _observer;
+            private readonly ITraceSink? _trace;
+
+            /// <summary>
+            /// Initializes a new instance of the InMemoryRegistryImpl class with the specified observer and trace sink.
+            /// </summary>
+            /// <param name="observer">An optional observer that receives notifications about registry changes. May be <see langword="null"/> if
+            /// not required.</param>
+            /// <param name="trace">An optional trace sink used to record diagnostic or tracing information. May be <see langword="null"/> if tracing is not
+            /// needed.</param>
+            public InMemoryRegistryImpl(IRegistryObserver<T>? observer = null, ITraceSink? trace = null)
+            {
+                _observer = observer;
+                _trace = trace;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetById(string id, out T? item)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                return _byId.TryGetValue(id, out item);
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetById(string id, out T? item, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                reason = null;
+                var found = _byId.TryGetValue(id, out item);
+                if (!found) reason = $"No item found with id '{id}'.";
+                return found;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByName(string name, out T? item)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+
+                if (_nameToId.TryGetValue(name, out var id) && _byId.TryGetValue(id, out var direct))
+                {
+                    item = direct;
+                    return true;
+                }
+
+                string? bestId = null;
+                T? bestMatch = default;
+
+                foreach (var v in _byId.Values)
+                {
+                    if (!string.Equals(v.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    if (bestId == null || string.CompareOrdinal(v.Id, bestId) < 0)
+                    {
+                        bestId = v.Id;
+                        bestMatch = v;
+                    }
+                }
+
+                if (bestMatch != null)
+                {
+                    item = bestMatch;
+                    _nameToId[name] = bestId!;
+                    return true;
+                }
+
+                item = default;
+                return false;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByName(string name, out T? item, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+                reason = null;
+
+                if (_nameToId.TryGetValue(name, out var id) && _byId.TryGetValue(id, out var direct))
+                {
+                    item = direct;
+                    return true;
+                }
+
+                item = _byId.Values.FirstOrDefault(v => string.Equals(v.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (item == null)
+                {
+                    reason = $"No item found with name '{name}'.";
+                    return false;
+                }
+
+                _nameToId[name] = item.Id;
+                reason = null;
+                return true;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByPredicate(Func<T, bool> predicate, out T? item)
+            {
+                ArgumentNullException.ThrowIfNull(predicate);
+                item = _byId.Values.FirstOrDefault(v => predicate(v));
+                return item != null;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByPredicate(Func<T, bool> predicate, out T? item, out string? reason)
+            {
+                ArgumentNullException.ThrowIfNull(predicate);
+                item = _byId.Values.FirstOrDefault(v => predicate(v));
+                reason = item == null ? "No item found matching the specified predicate." : null;
+                return item != null;
+            }
+
+            /// <inheritdoc/>
+            IEnumerable<T> IReadOnlyRegistry<T>.ListAll() => _byId.Values.ToArray();
+
+            /// <inheritdoc/>
+            public ValueTask<RegistryResult> TryRegisterAsync(T concept, CancellationToken token = default)
+            {
+                if (concept == null) throw new ArgumentNullException(nameof(concept));
+                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Id, nameof(concept.Id));
+                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Name, nameof(concept.Name));
+                token.ThrowIfCancellationRequested();
+
+                var added = _byId.TryAdd(concept.Id, concept);
+                if (added)
+                {
+                    _nameToId.TryAdd(concept.Name, concept.Id);
+                    try { _observer?.OnRegistered(concept); } catch { /* best-effort */ }
+                    return new ValueTask<RegistryResult>(RegistryResult.Success(true));
+                }
+
+                if (_byId.TryGetValue(concept.Id, out var existing))
+                {
+                    if (!string.Equals(existing.Name, concept.Name, StringComparison.Ordinal))
+                    {
+                        var reason = $"Registry conflict: id '{concept.Id}' already registered with a different name.";
+                        return new ValueTask<RegistryResult>(RegistryResult.Failure(reason, Enumerable.Empty<string>()));
+                    }
+
+                    return new ValueTask<RegistryResult>(RegistryResult.Success(false));
+                }
+
+                return new ValueTask<RegistryResult>(RegistryResult.Failure("Unknown registry outcome"));
+            }
+
+            /// <inheritdoc/>
+            public ValueTask<RegistryRemoveResult> TryRemoveAsync(string id, CancellationToken token = default)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                token.ThrowIfCancellationRequested();
+
+                if (_byId.TryRemove(id, out var removed))
+                {
+                    _nameToId.TryRemove(removed.Name, out _);
+                    try { _observer?.OnRemoved(id); } catch { /* best-effort */ }
+                    return new ValueTask<RegistryRemoveResult>(new RegistryRemoveResult(true));
+                }
+
+                return new ValueTask<RegistryRemoveResult>(new RegistryRemoveResult(false, "Item not found"));
+            }
+
+            /// <inheritdoc/>
+            public async ValueTask<T> GetOrAddAsync(string id, Func<CancellationToken, Task<T>> factory, CancellationToken token = default)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                ArgumentNullException.ThrowIfNull(factory, nameof(factory));
+                token.ThrowIfCancellationRequested();
+
+                if (_byId.TryGetValue(id, out var exist)) return exist;
+
+                var lazy = _inflight.GetOrAdd(id, _ => new Lazy<Task<T>>(async () => await FactoryWrapperAsync(id, factory, token).ConfigureAwait(false), LazyThreadSafetyMode.ExecutionAndPublication));
+
+                T created;
+
+                try
+                {
+                    created = await lazy.Value.ConfigureAwait(false);
+                }
+                catch
+                {
+                    _inflight.TryRemove(id, out _);
+                    throw;
+                }
+
+                return created;
+            }
+
+            private async ValueTask<T> FactoryWrapperAsync(string id, Func<CancellationToken, Task<T>> factory, CancellationToken token)
+            {
+                IDisposable? scope = null;
+                try
+                {
+                    scope = _trace?.Begin("registry.getoradd");
+                    var created = await factory(token).ConfigureAwait(false);
+
+                    lock (_globalCreateLock)
+                    {
+                        if (_byId.TryGetValue(id, out var existing)) return existing;
+
+                        _byId[id] = created;
+                        _nameToId[created.Name] = created.Id;
+                    }
+
+                    try { _observer?.OnRegistered(created); } catch { /* best-effort */ }
+                    return created;
+                }
+                finally
+                {
+                    _inflight.TryRemove(id, out _);
+                    scope?.Dispose();
+                }
+            }
+        }
+    }
+}

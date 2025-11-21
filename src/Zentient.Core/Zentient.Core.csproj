@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<AssemblyName>Zentient.Core</AssemblyName>
+		<Authors>Zentient Team</Authors>
+		<RepositoryUrl>https://example.local/zentient</RepositoryUrl>
+		<PackageId>Zentient.Core</PackageId>
+		<PackageVersion>1.1.0</PackageVersion>
+		<Description>Reference runtime implementations for Zentient.Core (vNext). Minimal public surface, internal sealed implementations.</Description>
+	</PropertyGroup>
+</Project>
