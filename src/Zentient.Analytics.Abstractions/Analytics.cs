@@ -7,8 +7,8 @@ namespace Zentient.Analytics
 {
     using System;
     using System.Collections.Generic;
+
     using Zentient.Core;
-    using Zentient.Ontology;
 
     /// <summary>
     /// Marker interface for analytics-related concept types.

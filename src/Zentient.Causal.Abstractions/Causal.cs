@@ -2,8 +2,8 @@ namespace Zentient.Causal
 {
     using System;
     using System.Collections.Generic;
+
     using Zentient.Core;
-    using Zentient.Ontology;
 
     public interface ICausalConcept : IConcept { }
     public interface ICausalDefinition : IDefinition<ICausalConcept> { }

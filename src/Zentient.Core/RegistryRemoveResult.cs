@@ -32,5 +32,13 @@ namespace Zentient.Core
             Removed = removed;
             Reason = reason;
         }
+
+        /// <summary>
+        /// Returns a string that represents the current state of the registry removal result.
+        /// </summary>
+        /// <returns>A string indicating whether the registry entry was removed. If removed, returns "RegistryRemoveResult: Removed";
+        /// otherwise, returns "RegistryRemoveResult: NotRemoved - {Reason}", where {Reason} provides the reason for the
+        /// failure.</returns>
+        public override string ToString() => Removed ? "RegistryRemoveResult: Removed" : $"RegistryRemoveResult: NotRemoved - {Reason}";
     }
 }

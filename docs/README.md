@@ -4,7 +4,7 @@ A modular, concept-centric .NET ecosystem for ontology, analytics, config, gover
 
 ## Principles
 
-- Thin `Zentient.Abstractions` Canonical core: only IConcept, axes, and principal attributes
+- Thin `Zentient.Core.Abstractions` Canonical core: only IConcept, axes, and principal attributes
 - Area packages: Ontology, Analytics, Config, Governance, DI, SDK, Adapters
 - Seven-axis semantic lattice: Ontic, Temporal, Policy, Structure, Context, Capability, Evidence (see /charter.md)
 - Mix-in governance and provenance interfaces
@@ -17,6 +17,6 @@ See [`canonical-spec.md`](./canonical-spec.md) and [`charter.md`](./charter.md) 
 
 ## Getting Started
 
-- Add Zentient.Abstractions for the core `IConcept` and axes.
+- Add Zentient.Core.Abstractions for the core `IConcept` and axes.
 - Add specific area packages (e.g., Zentient.Ontology.Abstractions) per your domain needs.
 - Reference SDK and Adapters for DX, integration, and runtime provisioning.

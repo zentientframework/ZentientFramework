@@ -17,14 +17,16 @@ namespace Zentient.Core
         /// <summary>
         /// Creates a successful registration result.
         /// </summary>
-        public static RegistryResult Success(bool added) => new(added, reason: null, conflicts: Array.Empty<string>());
+        public static RegistryResult Success(bool added)
+            => new(added, reason: null, conflicts: Array.Empty<string>());
 
         /// <summary>
         /// Creates a failed registration result with reason and optional conflicts.
         /// </summary>
         /// <param name="reason">Human readable reason for the failure.</param>
         /// <param name="conflicts">Optional list of conflicting keys or other contextual conflict identifiers.</param>
-        public static RegistryResult Failure(string reason, IEnumerable<string>? conflicts = null) => new(false, reason, conflicts ?? Array.Empty<string>());
+        public static RegistryResult Failure(string reason, IEnumerable<string>? conflicts = null)
+            => new(false, reason, conflicts ?? Array.Empty<string>());
 
         /// <summary>
         /// Constructor.
@@ -54,5 +56,12 @@ namespace Zentient.Core
         /// Optional list of conflicting keys or other contextual conflict identifiers.
         /// </summary>
         public IEnumerable<string> Conflicts { get; }
+
+        /// <summary>
+        /// Returns a string that represents the current registry operation result.
+        /// </summary>
+        /// <returns>A string describing whether the registry operation was added successfully or failed, including the failure
+        /// reason if applicable.</returns>
+        public override string ToString() => Added ? "RegistryResult: Added" : $"RegistryResult: Failed - {Reason}";
     }
 }

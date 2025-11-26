@@ -6,6 +6,8 @@
 namespace Zentient.Core
 {
     using System;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -41,21 +43,23 @@ namespace Zentient.Core
         /// <remarks>This type is used as a placeholder when no serializer implementation is available.
         /// All methods throw a NotSupportedException. To enable serialization, add a formatter package (such as
         /// Zentient.Formatters.Json) or provide an ISerializer implementation via your host.</remarks>
+        [DebuggerNonUserCode]
+        [ExcludeFromCodeCoverage]
         internal sealed class NotSupportedSerializer : ISerializer, ISerializerAsync
         {
             private const string Message = "No serializer implementation available. Add a formatter package (e.g., Zentient.Formatters.Json) or plug ISerializer via your host.";
 
             /// <inheritdoc/>
-            public string Serialize<T>(T item) => throw new NotSupportedException(Message);
+            [StackTraceHidden] public string Serialize<T>(T item) => throw new NotSupportedException(Message);
 
             /// <inheritdoc/>
-            public T? Deserialize<T>(string payload) => throw new NotSupportedException(Message);
+            [StackTraceHidden] public T? Deserialize<T>(string payload) => throw new NotSupportedException(Message);
 
             /// <inheritdoc/>
-            public Task<string> SerializeAsync<T>(T item, CancellationToken token = default) => throw new NotSupportedException(Message);
+            [StackTraceHidden] public Task<string> SerializeAsync<T>(T item, CancellationToken token = default) => throw new NotSupportedException(Message);
 
             /// <inheritdoc/>
-            public Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default) => throw new NotSupportedException(Message);
+            [StackTraceHidden] public Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default) => throw new NotSupportedException(Message);
         }
     }
 }

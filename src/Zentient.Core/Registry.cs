@@ -8,11 +8,10 @@ namespace Zentient.Core
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-
-
 
     /// <summary>
     /// Provides factory methods for creating registry instances for managing concept objects in memory.
@@ -44,12 +43,13 @@ namespace Zentient.Core
         /// case-insensitive, while ID lookups are case-sensitive. This class is intended for internal use and is not
         /// designed for distributed or persistent scenarios.</remarks>
         /// <typeparam name="T">The type of concept managed by the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        [DebuggerDisplay("Registry<{typeof(T).Name}> (Count = {_byId.Count})")]
         internal sealed class InMemoryRegistryImpl<T> : IRegistry<T> where T : IConcept
         {
             private readonly ConcurrentDictionary<string, T> _byId = new(StringComparer.Ordinal);
             private readonly ConcurrentDictionary<string, string> _nameToId = new(StringComparer.OrdinalIgnoreCase);
             private readonly ConcurrentDictionary<string, Lazy<Task<T>>> _inflight = new(StringComparer.Ordinal);
-            private readonly object _globalCreateLock = new();
+            private readonly object _mutationLock = new();
             private readonly IRegistryObserver<T>? _observer;
             private readonly ITraceSink? _trace;
 
@@ -97,13 +97,13 @@ namespace Zentient.Core
                 string? bestId = null;
                 T? bestMatch = default;
 
-                foreach (var v in _byId.Values)
+                foreach (T v in _byId.Values)
                 {
-                    if (!string.Equals(v.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(v.DisplayName, name, StringComparison.OrdinalIgnoreCase)) continue;
 
-                    if (bestId == null || string.CompareOrdinal(v.Id, bestId) < 0)
+                    if (bestId == null || string.CompareOrdinal(v.Key, bestId) < 0)
                     {
-                        bestId = v.Id;
+                        bestId = v.Key;
                         bestMatch = v;
                     }
                 }
@@ -131,14 +131,14 @@ namespace Zentient.Core
                     return true;
                 }
 
-                item = _byId.Values.FirstOrDefault(v => string.Equals(v.Name, name, StringComparison.OrdinalIgnoreCase));
+                item = _byId.Values.FirstOrDefault(v => string.Equals(v.DisplayName, name, StringComparison.OrdinalIgnoreCase));
                 if (item == null)
                 {
                     reason = $"No item found with name '{name}'.";
                     return false;
                 }
 
-                _nameToId[name] = item.Id;
+                _nameToId[name] = item.Key;
                 reason = null;
                 return true;
             }
@@ -155,7 +155,7 @@ namespace Zentient.Core
             public bool TryGetByPredicate(Func<T, bool> predicate, out T? item, out string? reason)
             {
                 ArgumentNullException.ThrowIfNull(predicate);
-                item = _byId.Values.FirstOrDefault(v => predicate(v));
+                item = _byId.Values.FirstOrDefault(predicate);
                 reason = item == null ? "No item found matching the specified predicate." : null;
                 return item != null;
             }
@@ -166,24 +166,31 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public ValueTask<RegistryResult> TryRegisterAsync(T concept, CancellationToken token = default)
             {
-                if (concept == null) throw new ArgumentNullException(nameof(concept));
-                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Id, nameof(concept.Id));
-                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Name, nameof(concept.Name));
+                ArgumentNullException.ThrowIfNull(concept, nameof(concept));
+                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Key, nameof(concept.Key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(concept.DisplayName, nameof(concept.DisplayName));
                 token.ThrowIfCancellationRequested();
 
-                var added = _byId.TryAdd(concept.Id, concept);
+                var added = _byId.TryAdd(concept.Key, concept);
+
                 if (added)
                 {
-                    _nameToId.TryAdd(concept.Name, concept.Id);
-                    try { _observer?.OnRegistered(concept); } catch { /* best-effort */ }
+                    _nameToId.TryAdd(concept.DisplayName, concept.Key);
+
+                    try
+                    {
+                        _observer?.OnRegistered(concept);
+                    }
+                    catch { /* best-effort */ }
+
                     return new ValueTask<RegistryResult>(RegistryResult.Success(true));
                 }
 
-                if (_byId.TryGetValue(concept.Id, out var existing))
+                if (_byId.TryGetValue(concept.Key, out var existing))
                 {
-                    if (!string.Equals(existing.Name, concept.Name, StringComparison.Ordinal))
+                    if (!string.Equals(existing.DisplayName, concept.DisplayName, StringComparison.Ordinal))
                     {
-                        var reason = $"Registry conflict: id '{concept.Id}' already registered with a different name.";
+                        var reason = $"Registry conflict: id '{concept.Key}' already registered with a different name.";
                         return new ValueTask<RegistryResult>(RegistryResult.Failure(reason, Enumerable.Empty<string>()));
                     }
 
@@ -201,8 +208,12 @@ namespace Zentient.Core
 
                 if (_byId.TryRemove(id, out var removed))
                 {
-                    _nameToId.TryRemove(removed.Name, out _);
-                    try { _observer?.OnRemoved(id); } catch { /* best-effort */ }
+                    _nameToId.TryRemove(removed.DisplayName, out _);
+                    try
+                    {
+                        _observer?.OnRemoved(id);
+                    }
+                    catch { /* best-effort */ }
                     return new ValueTask<RegistryRemoveResult>(new RegistryRemoveResult(true));
                 }
 
@@ -216,7 +227,10 @@ namespace Zentient.Core
                 ArgumentNullException.ThrowIfNull(factory, nameof(factory));
                 token.ThrowIfCancellationRequested();
 
-                if (_byId.TryGetValue(id, out var exist)) return exist;
+                if (_byId.TryGetValue(id, out var exist))
+                {
+                    return exist;
+                }
 
                 var lazy = _inflight.GetOrAdd(id, _ => new Lazy<Task<T>>(async () => await FactoryWrapperAsync(id, factory, token).ConfigureAwait(false), LazyThreadSafetyMode.ExecutionAndPublication));
 
@@ -243,15 +257,22 @@ namespace Zentient.Core
                     scope = _trace?.Begin("registry.getoradd");
                     var created = await factory(token).ConfigureAwait(false);
 
-                    lock (_globalCreateLock)
+                    lock (_mutationLock)
                     {
-                        if (_byId.TryGetValue(id, out var existing)) return existing;
+                        if (_byId.TryGetValue(id, out var existing))
+                        {
+                            return existing;
+                        }
 
                         _byId[id] = created;
-                        _nameToId[created.Name] = created.Id;
+                        _nameToId[created.DisplayName] = created.Key;
                     }
 
-                    try { _observer?.OnRegistered(created); } catch { /* best-effort */ }
+                    try
+                    {
+                        _observer?.OnRegistered(created);
+                    }
+                    catch { /* best-effort */ }
                     return created;
                 }
                 finally

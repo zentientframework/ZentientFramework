@@ -3,6 +3,14 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Threading.Tasks;
+
+using Zentient.Metadata;
+
 namespace Zentient.Core
 {
     using System;
@@ -17,4 +25,16 @@ namespace Zentient.Core
         /// </summary>
         IDisposable Begin(string activityName);
     }
+}
+namespace Zentient.Core.Results
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Immutable;
+    using System.Diagnostics;
+    using System.Linq;
+    using System.Threading.Tasks;
+
+    using Zentient.Metadata;
+
 }

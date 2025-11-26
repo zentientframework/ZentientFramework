@@ -12,6 +12,7 @@ namespace Zentient.Core
     /// Represents a bounded execution context. Implementations produce a local <see cref="CancellationToken"/>
     /// which may be linked to a parent token. Disposing the context cancels the local token (not the parent).
     /// </summary>
+    /// <summary>Execution context carrying cancellation and small ambient bag. Implementations are immutable after creation.</summary>
     public interface IExecutionContext : IDisposable
     {
         /// <summary>

@@ -7,14 +7,16 @@ namespace Zentient.Core
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Diagnostics;
     using System.Threading;
 
     /// <summary>
-    /// Execution context helpers for creating and working with execution scopes.
+    /// Execution context factory and implementation.
+    /// Child scopes own their cancellation token source; disposing a child cancels only the child.
     /// </summary>
     public static class Execution
     {
-        /// <summary>Create a new execution context. Parent token is optional; parent cancellations will flow into child.</summary>
+        /// <summary>Create an execution context linked to an optional parent cancellation token.</summary>
         /// <param name="parent">Optional parent cancellation token.</param>
         /// <returns>A new <see cref="IExecutionContext"/> instance.</returns>
         public static IExecutionContext Create(CancellationToken parent = default)
@@ -23,6 +25,7 @@ namespace Zentient.Core
         /// <summary>
         /// Internal implementation of <see cref="IExecutionContext"/>.
         /// </summary>
+        [DebuggerDisplay("ExecutionContext (CancellationRequested = {Cancellation.IsCancellationRequested})")]
         internal sealed class ExecutionContextImpl : IExecutionContext
         {
             private readonly ConcurrentDictionary<string, object?> _bag = new();
@@ -55,6 +58,8 @@ namespace Zentient.Core
             public bool TryGet(string key, out object? value, out string? reason)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
                 Cancellation.ThrowIfCancellationRequested();
 
                 var result = _bag.TryGetValue(key, out value);
@@ -66,6 +71,8 @@ namespace Zentient.Core
             public bool TryGet<T>(string key, out T? value, out string? reason)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
                 Cancellation.ThrowIfCancellationRequested();
 
                 if (_bag.TryGetValue(key, out var v) && v is T t)
@@ -84,6 +91,8 @@ namespace Zentient.Core
             public bool TrySet(string key, object? value, out string? reason)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
                 Cancellation.ThrowIfCancellationRequested();
 
                 if (value is null)
@@ -116,6 +125,9 @@ namespace Zentient.Core
             public bool TrySet<T>(string key, T? value, out string? reason)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
+                Cancellation.ThrowIfCancellationRequested();
 
                 if (value is null)
                 {
@@ -171,6 +183,11 @@ namespace Zentient.Core
                 public static readonly ScopeToken Instance = new();
                 private ScopeToken() { }
                 public void Dispose() { /* no-op */ }
+            }
+
+            private void ThrowIfDisposed()
+            {
+                if (_disposed) throw new ObjectDisposedException(nameof(ExecutionContextImpl), "Execution context has been disposed.");
             }
         }
     }

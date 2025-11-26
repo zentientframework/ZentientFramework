@@ -4,7 +4,7 @@
 
 **Packages:**
 
-- `Zentient.Abstractions` — Core: IConcept, axes, canonical attributes
+- `Zentient.Core.Abstractions` — Core: IConcept, axes, canonical attributes
 - `Zentient.Ontology.Abstractions`
 - `Zentient.Analytics.Abstractions`
 - `Zentient.Configuration.Abstractions`
@@ -26,7 +26,7 @@ Implement each area in its own project/folder.
 
 ## Subdirectories
 
-- src/Zentient.Abstractions/
+- src/Zentient.Core.Abstractions/
 - src/Zentient.Ontology.Abstractions/
 - src/Zentient.Analytics.Abstractions/
 - src/Zentient.Configuration.Abstractions/

@@ -7,7 +7,6 @@ namespace Zentient.Ontology
 {
     using System;
     using System.Collections.Generic;
-    using Zentient.Core;
 
     /// <summary>
     /// Represents an object that exposes a stable unique identifier.

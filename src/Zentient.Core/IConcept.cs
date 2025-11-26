@@ -3,31 +3,38 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+
+using Zentient.Metadata;
+
 namespace Zentient.Core
 {
-    using System;
+    // -----------------------------------------------------------------------
+    // 5. DOMAIN KERNEL: The Canonical Concept Model
+    // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Minimal conceptual atom: identity, display name and optional description.
-    /// Implementations are expected to be effectively immutable and thread-safe.
+    /// The root interface for all domain concepts. Combines identity, human-readable name, 
+    /// descriptive context, and immutable semantic tags (Metadata).
     /// </summary>
     public interface IConcept
     {
-        /// <summary>
-        /// Stable identifier for the concept. This is an opaque string and may be a <see cref="Guid"/>,
-        /// a structured identifier, or any other stable identifier chosen by implementations.
-        /// </summary>
-        string Id { get; }
+        /// <summary>The technical, stable, machine-readable key (replaces 'Id').</summary>
+        string Key { get; }
 
-        /// <summary>
-        /// Short human-readable name intended for display or logging. Not intended to be
-        /// used as a canonical identifier.
-        /// </summary>
-        string Name { get; }
+        /// <summary>The human-readable display name (replaces 'Name').</summary>
+        string DisplayName { get; }
 
-        /// <summary>
-        /// Optional description providing additional context; may be <c>null</c> when not provided.
-        /// </summary>
+        /// <summary>The optional, long-form human-readable description.</summary>
         string? Description { get; }
+
+        /// <summary>A unique, globally identifiable Guid for cross-system correlation.</summary>
+        Guid GuidId { get; }
+
+        /// <summary>Immutable semantic tags for categorization and governance (Operational Metadata).</summary>
+        IMetadata Tags { get; }
     }
 }

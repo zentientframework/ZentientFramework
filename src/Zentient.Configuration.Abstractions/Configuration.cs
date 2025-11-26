@@ -5,6 +5,7 @@
 
 namespace Zentient.Configuration
 {
+    using Zentient.Context;
     using Zentient.Core;
 
     /// <summary>
@@ -17,7 +18,7 @@ namespace Zentient.Configuration
         /// <summary>
         /// Gets the binding semantics that describe whether context is intrinsic or extrinsic for this source.
         /// </summary>
-        ContextBinding Binding { get; }
+        IContextBinding Binding { get; }
 
         /// <summary>
         /// Gets the set of scope lattice levels where this source is valid or should be consulted.

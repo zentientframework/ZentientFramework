@@ -4,4 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Zentient.Context.Abstractions\Zentient.Context.Abstractions.csproj" />
+    <ProjectReference Include="..\Zentient.Core\Zentient.Core.csproj" />
+  </ItemGroup>
 </Project>

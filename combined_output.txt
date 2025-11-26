@@ -1,0 +1,1475 @@
+===== src/Zentient.Core/Concept.cs =====
+// <copyright file="Concept.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Diagnostics;
+
+    /// <summary>
+    /// Public factory facade for creating concept instances.
+    /// Concrete implementations are internal to allow binary compatibility improvements.
+    /// </summary>
+    public static class Concept
+    {
+        /// <summary>Create a minimal concept (id + name + optional description).</summary>
+        /// <param name="id">Stable identifier for the concept. Must not be null or whitespace.</param>
+        /// <param name="name">Human-readable name for the concept. Must not be null or whitespace.</param>
+        /// <param name="description">Optional description for the concept.</param>
+        /// <returns>A new <see cref="IConcept"/> instance.</returns>
+        public static IConcept Create(string id, string name, string? description = null)
+            => new InternalConcept(id, name, description, validate: true);
+
+        /// <summary>
+        /// Creates a new <see cref="IIdentifiable"/> instance which also carries a <see cref="Guid"/> identity.
+        /// </summary>
+        /// <param name="guidId">The <see cref="Guid"/> identifier. Must not be <see cref="Guid.Empty"/>.</param>
+        /// <param name="id">Stable identifier for the concept. Must not be <see langword="null"/> or whitespace.</param>
+        /// <param name="name">Human-readable name for the concept. Must not be <see langword="null"/> or whitespace.</param>
+        /// <param name="description">Optional description for the concept.</param>
+        /// <returns>A new <see cref="IIdentifiable"/> instance.</returns>
+        public static IIdentifiable CreateIdentifiable(Guid guidId, string id, string name, string? description = null)
+            => new InternalIdentifiable(guidId, id, name, description, validate: true);
+
+        /// <summary>
+        /// Internal implementation of <see cref="IConcept"/>.
+        /// </summary>
+        /// <param name="Id">The stable identifier.</param>
+        /// <param name="Name">The human-readable name.</param>
+        /// <param name="Description">The optional description.</param>
+        [DebuggerDisplay("{Id} ({Name})")]
+        internal record InternalConcept(string Id, string Name, string? Description = null) : IConcept
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="InternalConcept"/> class.
+            /// </summary>
+            /// <remarks>
+            /// This constructor is primarily for use by the serialization infrastructure.
+            /// </remarks>
+            [Obsolete("Parameterless ctor intended only for serializers.", true)]
+            public InternalConcept() : this(string.Empty, string.Empty, null) { }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="InternalConcept"/> class with optional validation.
+            /// </summary>
+            /// <param name="id">The stable identifier.</param>
+            /// <param name="name">The human-readable name.</param>
+            /// <param name="description">The optional description.</param>
+            /// <param name="validate">If <see langword="true"/>, performs validation on <paramref name="id"/> and 
+            /// <paramref name="name"/>.</param>
+            internal InternalConcept(string id, string name, string? description, bool validate)
+                : this(id, name, description)
+            {
+                if (!validate) return;
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+
+                if (description is not null && description.Length == 0)
+                {
+                    throw new ArgumentException("Description must be null or a non-empty string.", nameof(description));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Internal implementation of <see cref="IIdentifiable"/>.
+        /// </summary>
+        /// <param name="GuidId">The <see cref="Guid"/> identifier.</param>
+        /// <param name="Id">The stable identifier.</param>
+        /// <param name="Name">The human-readable name.</param>
+        /// <param name="Description">The optional description.</param>
+        /// <remarks>
+        /// This type inherits from <see cref="InternalConcept"/> to reuse its implementation of <see cref="IConcept"/>.
+        /// </remarks>
+        [DebuggerDisplay("{GuidId} {Id} ({Name})")]
+        internal sealed record InternalIdentifiable(Guid GuidId, string Id, string Name, string? Description = null)
+                : InternalConcept(Id, Name, Description), IIdentifiable
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="InternalIdentifiable"/> class.
+            /// </summary>
+            /// <remarks>
+            /// This constructor is primarily for use by the serialization infrastructure.
+            /// </remarks>
+            [Obsolete("Parameterless ctor intended only for serializers.", true)]
+            public InternalIdentifiable() : this(Guid.Empty, string.Empty, string.Empty, null) { }
+
+            /// <summary>
+            /// Initializes a new instance of the InternalIdentifiable class with the specified identifiers and optional
+            /// validation.
+            /// </summary>
+            /// <param name="guidId">The unique GUID identifier for the object. Must not be <see cref="Guid.Empty"/> if <paramref
+            /// name="validate"/> is <see langword="true"/>.</param>
+            /// <param name="id">The string identifier for the object. Cannot be <see langword="null"/>, empty, or consist only of
+            /// white-space characters if <paramref name="validate"/> is <see langword="true"/>.</param>
+            /// <param name="name">The display name for the object. Cannot be <see langword="null"/>, empty, or consist only of white-space
+            /// characters if <paramref name="validate"/> is <see langword="true"/>.</param>
+            /// <param name="description">An optional description for the object, or <see langword="null"/> if no description is provided.</param>
+            /// <param name="validate">A value indicating whether to validate the input parameters. If <see langword="true"/>, the constructor
+            /// will validate that <paramref name="guidId"/>, <paramref name="id"/>, and <paramref name="name"/> meet
+            /// their requirements.</param>
+            /// <exception cref="ArgumentException">Thrown if <paramref name="validate"/> is <see langword="true"/> and <paramref name="guidId"/> is <see
+            /// cref="Guid.Empty"/>, or if <paramref name="id"/> or <paramref name="name"/> is <see langword="null"/>,
+            /// empty, or consists only of white-space characters.</exception>
+            internal InternalIdentifiable(Guid guidId, string id, string name, string? description, bool validate)
+                : this(guidId, id, name, description)
+            {
+                if (!validate) return;
+
+                if (guidId == Guid.Empty)
+                {
+                    throw new ArgumentException("GUID identifier must not be empty.", nameof(guidId));
+                }
+
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+
+                if (description is not null && description.Length == 0)
+                {
+                    throw new ArgumentException("Description must be null or a non-empty string.", nameof(description));
+                }
+            }
+        }
+    }
+}
+
+
+===== src/Zentient.Core/Execution.cs =====
+// <copyright file="Execution.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Collections.Concurrent;
+    using System.Diagnostics;
+    using System.Threading;
+
+    /// <summary>
+    /// Execution context factory and implementation.
+    /// Child scopes own their cancellation token source; disposing a child cancels only the child.
+    /// </summary>
+    public static class Execution
+    {
+        /// <summary>Create an execution context linked to an optional parent cancellation token.</summary>
+        /// <param name="parent">Optional parent cancellation token.</param>
+        /// <returns>A new <see cref="IExecutionContext"/> instance.</returns>
+        public static IExecutionContext Create(CancellationToken parent = default)
+            => new ExecutionContextImpl(parent);
+
+        /// <summary>
+        /// Internal implementation of <see cref="IExecutionContext"/>.
+        /// </summary>
+        [DebuggerDisplay("ExecutionContext (CancellationRequested = {Cancellation.IsCancellationRequested})")]
+        internal sealed class ExecutionContextImpl : IExecutionContext
+        {
+            private readonly ConcurrentDictionary<string, object?> _bag = new();
+            private readonly CancellationTokenSource _localCts = new();
+            private readonly CancellationTokenSource? _linkedCts;
+            private bool _disposed;
+            private readonly object _globalCreateLock = new();
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="ExecutionContextImpl"/> class.
+            /// </summary>
+            /// <param name="parent">Optional parent cancellation token.</param>
+            public ExecutionContextImpl(CancellationToken parent = default)
+            {
+                if (parent != default)
+                {
+                    _linkedCts = CancellationTokenSource.CreateLinkedTokenSource(parent, _localCts.Token);
+                    Cancellation = _linkedCts.Token;
+                }
+                else
+                {
+                    Cancellation = _localCts.Token;
+                }
+            }
+
+            /// <inheritdoc/>
+            public CancellationToken Cancellation { get; }
+
+            /// <inheritdoc/>
+            public bool TryGet(string key, out object? value, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
+                Cancellation.ThrowIfCancellationRequested();
+
+                var result = _bag.TryGetValue(key, out value);
+                reason = result ? null : $"Key '{key}' not found in execution context.";
+                return result;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGet<T>(string key, out T? value, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
+                Cancellation.ThrowIfCancellationRequested();
+
+                if (_bag.TryGetValue(key, out var v) && v is T t)
+                {
+                    value = t;
+                    reason = null;
+                    return true;
+                }
+
+                value = default;
+                reason = $"Key '{key}' not found in execution context or value is of incompatible type.";
+                return false;
+            }
+
+            /// <inheritdoc/>
+            public bool TrySet(string key, object? value, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
+                Cancellation.ThrowIfCancellationRequested();
+
+                if (value is null)
+                {
+                    var removed = _bag.TryRemove(key, out _);
+                    if (removed)
+                    {
+                        reason = null;
+                        return true;
+                    }
+
+                    reason = $"Key '{key}' not found in execution context.";
+                    return false;
+                }
+                else
+                {
+                    var added = _bag.TryAdd(key, value);
+                    if (added)
+                    {
+                        reason = null;
+                        return true;
+                    }
+
+                    reason = $"Key '{key}' already exists in execution context.";
+                    return false;
+                }
+            }
+
+            /// <inheritdoc/>
+            public bool TrySet<T>(string key, T? value, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                // Check disposed first so that using a disposed context throws ObjectDisposedException
+                ThrowIfDisposed();
+                Cancellation.ThrowIfCancellationRequested();
+
+                if (value is null)
+                {
+                    var removed = _bag.TryRemove(key, out _);
+                    if (removed)
+                    {
+                        reason = null;
+                        return true;
+                    }
+
+                    reason = $"Key '{key}' not found in execution context.";
+                    return false;
+                }
+
+                var added = _bag.TryAdd(key, value);
+                if (added)
+                {
+                    reason = null;
+                    return true;
+                }
+                else
+                {
+                    reason = $"Key '{key}' already exists in execution context.";
+                    return false;
+                }
+            }
+
+            public IDisposable BeginScope() => ScopeToken.Instance;
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+
+                lock (_globalCreateLock)
+                {
+                    if (_disposed) return;
+
+                    try
+                    {
+                        try { _localCts.Cancel(); } catch { /* best-effort */ }
+                        _localCts.Dispose();
+                    }
+                    finally
+                    {
+                        _linkedCts?.Dispose();
+                        _disposed = true;
+                    }
+                }
+            }
+
+            private sealed class ScopeToken : IDisposable
+            {
+                public static readonly ScopeToken Instance = new();
+                private ScopeToken() { }
+                public void Dispose() { /* no-op */ }
+            }
+
+            private void ThrowIfDisposed()
+            {
+                if (_disposed) throw new ObjectDisposedException(nameof(ExecutionContextImpl), "Execution context has been disposed.");
+            }
+        }
+    }
+}
+
+
+===== src/Zentient.Core/IConcept.cs =====
+// <copyright file="IConcept.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+using System;
+
+namespace Zentient.Core
+{
+    // -----------------------------------------------------------------------
+    // 5. DOMAIN KERNEL: The Canonical Concept Model
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// The root interface for all domain concepts. Combines identity, human-readable name, 
+    /// descriptive context, and immutable semantic tags (Metadata).
+    /// </summary>
+    public interface IConcept
+    {
+        /// <summary>The technical, stable, machine-readable key (replaces 'Id').</summary>
+        string Key { get; }
+
+        /// <summary>The human-readable display name (replaces 'Name').</summary>
+        string DisplayName { get; }
+
+        /// <summary>The optional, long-form human-readable description.</summary>
+        string? Description { get; }
+
+        /// <summary>A unique, globally identifiable Guid for cross-system correlation.</summary>
+        Guid GuidId { get; }
+
+        /// <summary>Immutable semantic tags for categorization and governance (Operational Metadata).</summary>
+        IMetadata Tags { get; }
+    }
+}
+
+
+===== src/Zentient.Core/IContextExtension.cs =====
+// <copyright file="IContextExtension.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+
+    /// <summary>
+    /// Marker for optional context-level extensions implemented by higher-level packages.
+    /// </summary>
+    public interface IContextExtension
+    {
+        /// <summary>
+        /// Gets the name associated with the current instance.
+        /// </summary>
+        string Name { get; }
+
+        /// <summary>
+        /// Gets the version information for the current instance.
+        /// </summary>
+        Version Version { get; }
+    }
+}
+
+
+===== src/Zentient.Core/IDescribed.cs =====
+// <copyright file="IDescribed.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    /// <summary>
+    /// A small contract representing an optional description.
+    /// </summary>
+    public interface IDescribed
+    {
+        /// <summary>
+        /// Descriptive text; may be <c>null</c>.
+        /// </summary>
+        string? Description { get; }
+    }
+}
+
+
+===== src/Zentient.Core/IExecutionContext.cs =====
+// <copyright file="IExecutionContext.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Threading;
+
+    /// <summary>
+    /// Represents a bounded execution context. Implementations produce a local <see cref="CancellationToken"/>
+    /// which may be linked to a parent token. Disposing the context cancels the local token (not the parent).
+    /// </summary>
+    /// <summary>Execution context carrying cancellation and small ambient bag. Implementations are immutable after creation.</summary>
+    public interface IExecutionContext : IDisposable
+    {
+        /// <summary>
+        /// Cancellation token for cooperative cancellation. Parent cancellation flows into this token when linked.
+        /// </summary>
+        CancellationToken Cancellation { get; }
+
+        /// <summary>
+        /// Small ambient key/value bag for lightweight contextual data. Keys are convention-based strings.
+        /// Throws only for unrecoverable input errors (null/whitespace key).
+        /// </summary>
+        /// <param name="key">The key with which the value will be retrieved. Cannot be <see langword="null"/> or whitespace.</param>
+        /// <param name="value">When this method returns, contains the value associated with the specified key, if found; 
+        /// otherwise, <see langword="null"/>.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if the key was not found; 
+        /// otherwise, <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if the key was found; otherwise, <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is <see langword="null"/> or whitespace.</exception>
+        bool TryGet(string key, out object? value, out string? reason);
+
+        /// <summary>
+        /// Typed getter for contextual values.
+        /// </summary>
+        /// <typeparam name="T">The expected type of the value.</typeparam>
+        /// <param name="key">The key with which the value will be retrieved. Cannot be <see langword="null"/> or whitespace.</param>
+        /// <param name="value">When this method returns, contains the value associated with the specified key, if found and of the correct type;
+        /// otherwise, the default value for the type.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if the key was not found or of incompatible type;
+        /// otherwise, <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if the key was found and of the correct type; otherwise, <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is <see langword="null"/> or whitespace.</exception>
+        bool TryGet<T>(string key, out T? value, out string? reason);
+
+        /// <summary>
+        /// Store or remove a contextual value. Passing <c>null</c> removes the value.
+        /// Throws only for unrecoverable input errors (null/whitespace key).
+        /// </summary>
+        /// <param name="key">The key with which the value will be associated. Cannot be <see langword="null"/> or whitespace.</param>
+        /// <param name="value">Value to set, or <see langword="null"/> to remove the item.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if the operation was not successful;
+        /// otherwise, <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if the operation was successful; otherwise, <see langword="false"/>.</returns>
+        /// <remarks>Implementations may impose additional constraints on the types of values stored.</remarks>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is <see langword="null"/> or whitespace.</exception>
+        bool TrySet(string key, object? value, out string? reason);
+
+        /// <summary>
+        /// Sets the value associated with the specified key.
+        /// </summary>
+        /// <typeparam name="T">The type of the value to store.</typeparam>
+        /// <param name="key">The key with which the value will be associated. Cannot be <see langword="null"/> or whitespace.</param>
+        /// <param name="value">The value to set for the specified key. May be null for reference types.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if the operation was not successful;
+        /// otherwise, <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if the operation was successful; otherwise, <see langword="false"/>.</returns>
+        /// <remarks>Implementations may impose additional constraints on the types of values stored.</remarks>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is <see langword="null"/> or whitespace.</exception>
+        bool TrySet<T>(string key, T? value, out string? reason);
+
+        /// <summary>
+        /// Begin a minimal synchronous scope. The returned <see cref="IDisposable"/> ends the scope when disposed.
+        /// Kept synchronous and intentionally lightweight to avoid allocations on hot paths.
+        /// </summary>
+        IDisposable BeginScope();
+    }
+}
+
+
+===== src/Zentient.Core/IIdentifiable.cs =====
+// <copyright file="IIdentifiable.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+
+    /// <summary>
+    /// Defines a contract for objects that expose a globally unique identifier (<see cref="Guid"/>).
+    /// </summary>
+    public interface IIdentifiable
+    {
+        /// <summary>
+        /// Gets the unique identifier associated with this instance.
+        /// </summary>
+        Guid GuidId { get; }
+    }
+}
+
+
+===== src/Zentient.Core/ILifecycle.cs =====
+// <copyright file="ILifecycle.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System.Collections.Generic;
+
+    /// <summary>
+    /// A simple, read-only lifecycle representation.
+    /// </summary>
+    public interface ILifecycle
+    {
+        /// <summary>
+        /// All known lifecycle states in the order they were entered.
+        /// </summary>
+        IReadOnlyCollection<ILifecycleState> States { get; }
+
+        /// <summary>
+        /// Gets the current lifecycle state, if available.
+        /// </summary>
+        ILifecycleState? Current { get; }
+    }
+}
+
+
+===== src/Zentient.Core/ILifecycleState.cs =====
+// <copyright file="ILifecycleState.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+
+    /// <summary>
+    /// Represents a named lifecycle state with optional timestamp when entered.
+    /// </summary>
+    public interface ILifecycleState
+    {
+        /// <summary>
+        /// Name label of the lifecycle state.
+        /// </summary>
+        string Name { get; }
+
+        /// <summary>
+        /// Gets the date and time when the entry was created, or null if the entry time is not set.
+        /// </summary>
+        DateTimeOffset? EnteredAt { get; }
+    }
+}
+
+
+===== src/Zentient.Core/IMetadata.cs =====
+// <copyright file="IConcept.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    public interface IMetadata
+    {
+    }
+}
+
+===== src/Zentient.Core/INamed.cs =====
+// <copyright file="INamed.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    /// <summary>
+    /// A small contract representing a named entity.
+    /// </summary>
+    public interface INamed
+    {
+        /// <summary>
+        /// Name label for the implementing type or instance.
+        /// </summary>
+        string Name { get; }
+    }
+}
+
+
+===== src/Zentient.Core/IProvider{out TItem}.cs =====
+// <copyright file="Abstractions.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    /// <summary>
+    /// Provider factory pattern for pluggable runtime capabilities.
+    /// </summary>
+    /// <typeparam name="TItem">Type produced by the provider.</typeparam>
+    public interface IProvider<out TItem>
+        where TItem : class
+    {
+        /// <summary>
+        /// Unique provider identifier.
+        /// </summary>
+        string ProviderId { get; }
+
+        /// <summary>
+        /// Create an instance of the provided capability.
+        /// </summary>
+        /// <returns>An instance of <typeparamref name="TItem"/>.</returns>
+        TItem Create();
+    }
+}
+
+
+===== src/Zentient.Core/IReadOnlyRegistry{out TConcept}.cs =====
+// <copyright file="IReadOnlyRegistry.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Collections.Generic;
+
+    /// <summary>
+    /// Read-only registry contract. Provides deterministic lookup by id and by name.
+    /// The name lookup will return a deterministic first-match; higher-level registries
+    /// may impose stricter uniqueness constraints.
+    /// </summary>
+    /// <typeparam name="TConcept">The concept type stored in the registry.</typeparam>
+    public interface IReadOnlyRegistry<TConcept>
+        where TConcept : IConcept
+    {
+        /// <summary>
+        /// Attempts to retrieve an item of type T by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique identifier of the item to retrieve. Cannot be <see langword="null"/> or whitespace.</param>
+        /// <param name="item">When this method returns, contains the item associated with the specified identifier, if found; otherwise,
+        /// the default value for type T.</param>
+        /// <returns><see langword="true"/> if an item with the specified identifier was found; otherwise, <see langword="false"/>.</returns>
+        bool TryGetById(string id, out TConcept? item);
+
+        /// <summary>
+        /// Attempts to resolve an item by its stable identifier.
+        /// Throws only for unrecoverable input errors (null/whitespace).
+        /// </summary>
+        /// <param name="id">The stable identifier to lookup.</param>
+        /// <param name="item">When this method returns, contains the resolved item if found; otherwise <see langword="null"/>.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if the item was not found; otherwise 
+        /// <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if an item with the specified id was found; otherwise <see langword="false"/>.</returns>
+        bool TryGetById(string id, out TConcept? item, out string? reason);
+
+        /// <summary>
+        /// Attempts to resolve an item by name. Returns a deterministic first-match when multiple items share a name.
+        /// Throws only for unrecoverable input errors (null/whitespace).
+        /// </summary>
+        /// <param name="name">The name label to lookup.</param>
+        /// <param name="item">When this method returns, contains the resolved item if found; otherwise <see langword="null"/>.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if the item was not found; otherwise
+        /// <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if an item with the specified name was found; otherwise <see langword="false"/>.</returns>
+        bool TryGetByName(string name, out TConcept? item, out string? reason);
+
+        /// <summary>
+        /// Attempts to find an element that matches the specified predicate.
+        /// Throws only when <paramref name="predicate"/> is null.
+        /// </summary>
+        /// <param name="predicate">A function that defines the conditions of the element to search for. Cannot be <see langword="null"/>.</param>
+        /// <param name="item">When this method returns, contains the found item if a match was found; otherwise, <see langword="null"/>.</param>
+        /// <param name="reason">When this method returns, contains the reason for failure if no matching item was found; otherwise, 
+        /// <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if a matching item was found; otherwise, <see langword="false"/>.</returns>
+        bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item, out string? reason);
+
+        /// <summary>
+        /// Lists all items currently known by the registry. Implementations may return a snapshot.
+        /// </summary>
+        /// <returns>An enumerable of items. The enumeration may represent a snapshot and need not reflect concurrent modifications.</returns>
+        IEnumerable<TConcept> ListAll();
+    }
+}
+
+
+===== src/Zentient.Core/IRegistryObserver{out TConcept}.cs =====
+// <copyright file="IRegistryObserver.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    /// <summary>
+    /// Observer contract for registries. Intended for optional telemetry/auditing integration.
+    /// Implementations should avoid throwing; exceptions from observers are considered best-effort and should be handled by callers.
+    /// </summary>
+    /// <typeparam name="TConcept">Concept type observed by the registry.</typeparam>
+    public interface IRegistryObserver<in TConcept>
+        where TConcept : IConcept
+    {
+        /// <summary>
+        /// Handles logic to be executed when an item is registered. Cannot be null.
+        /// </summary>
+        /// <param name="item">The item that was registered.</param>
+        void OnRegistered(TConcept item);
+
+        /// <summary>
+        /// Handles logic to be performed when an item with the specified identifier is removed.
+        /// </summary>
+        /// <param name="id">The identifier of the item that was removed.</param>
+        void OnRemoved(string id);
+    }
+}
+
+
+===== src/Zentient.Core/IRegistry{out TConcept}.cs =====
+// <copyright file="IRegistry.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    /// <summary>
+    /// Minimal async-friendly registry contract.
+    /// Implementations MUST avoid double-creation under concurrent access for <see cref="GetOrAddAsync"/>.
+    /// Mutating operations surface recoverable outcomes via explicit result objects instead of throwing.
+    /// </summary>
+    /// <typeparam name="TConcept">The concept type stored in the registry.</typeparam>
+    public interface IRegistry<TConcept> : IReadOnlyRegistry<TConcept>
+        where TConcept : IConcept
+    {
+        /// <summary>
+        /// Attempts to register a concept asynchronously. Returns a <see cref="RegistryResult"/> describing outcome.
+        /// Implementations MUST NOT throw for recoverable id/name conflicts; such outcomes must be surfaced via the result.
+        /// Exceptions are reserved for unrecoverable input errors (null/whitespace arguments, corrupt state).
+        /// </summary>
+        /// <param name="concept">The concept to register.</param>
+        /// <param name="token">Optional cancellation token.</param>
+        /// <returns>A <see cref="RegistryResult"/> describing the outcome of the registration attempt.</returns>
+        ValueTask<RegistryResult> TryRegisterAsync(TConcept concept, CancellationToken token = default);
+
+        /// <summary>
+        /// Attempts to remove an item with the specified id. Returns a <see cref="RegistryRemoveResult"/> describing outcome.
+        /// Implementations MUST NOT throw for the item-not-found case; return a non-success result instead.
+        /// </summary>
+        /// <param name="id">The stable identifier of the item to remove.</param>
+        /// <param name="token">Optional cancellation token.</param>
+        /// <returns>A <see cref="RegistryRemoveResult"/> describing the outcome of the removal attempt.</returns>
+        ValueTask<RegistryRemoveResult> TryRemoveAsync(string id, CancellationToken token = default);
+
+        /// <summary>
+        /// Atomically get-or-add by <paramref name="id"/> using the provided asynchronous <paramref name="factory"/>.
+        /// Implementations MUST avoid double-creation when called concurrently for the same <paramref name="id"/>.
+        /// Factory failures are considered unrecoverable and may throw.
+        /// </summary>
+        /// <param name="id">The stable identifier of the item to get or add.</param>
+        /// <param name="factory">Asynchronous factory function to create the item if it does not already exist.</param>
+        /// <param name="token">Optional cancellation token.</param>
+        /// <returns>The existing or newly created item.</returns>
+        ValueTask<TConcept> GetOrAddAsync(string id, Func<CancellationToken, Task<TConcept>> factory, CancellationToken token = default);
+
+        /// <summary>
+        /// Attempts to find an element that matches the specified predicate.
+        /// </summary>
+        /// <param name="predicate">A function that defines the conditions of the element to search for. Cannot be null.</param>
+        /// <param name="item">When this method returns, contains the first element that matches the predicate, if found; otherwise, the
+        /// default value for the type of the element.</param>
+        /// <returns>true if an element that matches the predicate is found; otherwise, false.</returns>
+        bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item);
+    }
+}
+
+
+===== src/Zentient.Core/ISerializer.cs =====
+// <copyright file="ISerializer.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+
+    /// <summary>
+    /// Serializer contract used by higher-level packages. Implementations are free to choose the format.
+    /// Absence of a serializer implementation is a configuration error (unrecoverable) and may throw.
+    /// </summary>
+    public interface ISerializer
+    {
+        /// <summary>
+        /// Serialize the provided item to a string payload.
+        /// </summary>
+        /// <typeparam name="T">The type of the item to serialize.</typeparam>
+        /// <param name="item">The item to serialize.</param>
+        /// <returns>A string representation of the serialized item.</returns>
+        /// <exception cref="NotSupportedException">Thrown when no serializer implementation is available.</exception>
+        string Serialize<T>(T item);
+
+        /// <summary>
+        /// Deserialize the provided payload into an instance of <typeparamref name="T"/>.
+        /// Return <c>null</c> if payload is empty and <typeparamref name="T"/> is nullable.
+        /// </summary>
+        /// <typeparam name="T">The type to deserialize into.</typeparam>
+        /// <param name="payload">The string payload to deserialize.</param>
+        /// <returns>An instance of <typeparamref name="T"/> deserialized from the payload.</returns>
+        /// <exception cref="NotSupportedException">Thrown when no serializer implementation is available.</exception>
+        T? Deserialize<T>(string payload);
+    }
+}
+
+
+===== src/Zentient.Core/ISerializerAsync.cs =====
+// <copyright file="ISerializerAsync.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    /// <summary>
+    /// Async serializer contract.
+    /// </summary>
+    public interface ISerializerAsync
+    {
+        /// <summary>
+        /// Asynchronously serializes the specified item to a string representation.
+        /// The implementation may throw for unrecoverable configuration errors.
+        /// </summary>
+        /// <typeparam name="T">The type of the item to serialize.</typeparam>
+        /// <param name="item">The item to serialize.</param>
+        /// <param name="token">Optional cancellation token.</param>
+        /// <returns>A string representation of the serialized item.</returns>
+        /// <exception cref="NotSupportedException">Thrown when no serializer implementation is available.</exception>
+        Task<string> SerializeAsync<T>(T item, CancellationToken token = default);
+
+        /// <summary>
+        /// Asynchronously deserializes the specified string payload into an instance of <typeparamref name="T"/>.
+        /// Returns <c>null</c> if payload is empty and <typeparamref name="T"/> is nullable.
+        /// </summary>
+        /// <typeparam name="T">The type to deserialize into.</typeparam>
+        /// <param name="payload">The string payload to deserialize.</param>
+        /// <param name="token">Optional cancellation token.</param>
+        /// <returns>An instance of <typeparamref name="T"/> deserialized from the payload.</returns>
+        /// <exception cref="NotSupportedException">Thrown when no serializer implementation is available.</exception>
+        Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default);
+    }
+}
+
+
+===== src/Zentient.Core/ITraceSink.cs =====
+// <copyright file="ITraceSink.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+
+    /// <summary>
+    /// Tiny pluggable trace sink. Begin returns a disposable scope for timing/tracing operations.
+    /// </summary>
+    public interface ITraceSink
+    {
+        /// <summary>
+        /// Begin a tracing scope for the specified activity.
+        /// </summary>
+        IDisposable Begin(string activityName);
+    }
+}
+
+
+===== src/Zentient.Core/Lifecycle.cs =====
+// <copyright file="Lifecycle.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Linq;
+
+    /// <summary>
+    /// Lifecycle helpers for building simple lifecycle representations.
+    /// </summary>
+    public static class Lifecycle
+    {
+        /// <summary>
+        /// Creates a new lifecycle instance from the specified collection of state names and entry times.
+        /// </summary>
+        /// <param name="states">A collection of tuples, each containing the name of a state and the time at which it was entered. The state
+        /// name must not be null or empty.</param>
+        /// <returns>An <see cref="ILifecycle"/> instance representing the sequence of states and their associated entry times.</returns>
+        public static ILifecycle Create(IEnumerable<(string Name, DateTimeOffset? EnteredAt)> states)
+        {
+            var impl = states.Select(s => (ILifecycleState)new LifecycleStateImpl(s.Name, s.EnteredAt)).ToArray();
+            return new LifecycleImpl(impl);
+        }
+
+        /// <summary>
+        /// Represents the state of a lifecycle at a specific point in time.
+        /// </summary>
+        [DebuggerDisplay("{Name} @ {EnteredAt}")]
+        internal sealed class LifecycleStateImpl : ILifecycleState
+        {
+            /// <summary>
+            /// Initializes a new instance of the LifecycleStateImpl class with the specified state name and entry time.
+            /// </summary>
+            /// <param name="name">The name of the lifecycle state. Cannot be null.</param>
+            /// <param name="enteredAt">The date and time when the state was entered, or null if unknown.</param>
+            /// <exception cref="ArgumentNullException">Thrown if name is null.</exception>
+            public LifecycleStateImpl(string name, DateTimeOffset? enteredAt)
+            {
+                Name = name ?? throw new ArgumentNullException(nameof(name));
+                EnteredAt = enteredAt;
+            }
+
+            /// <inheritdoc/>
+            public string Name { get; }
+
+            /// <inheritdoc/>
+            public DateTimeOffset? EnteredAt { get; }
+        }
+
+        /// <summary>
+        /// Represents an immutable sequence of lifecycle states and provides access to the current state.
+        /// </summary>
+        /// <remarks>This class is intended for internal use and implements the ILifecycle interface. The
+        /// collection of states is read-only and reflects the ordered progression of lifecycle states. The current
+        /// state is the most recent state in the sequence, or null if no states are present.</remarks>
+        [DebuggerDisplay("Current = {Current?.Name ?? \"<null>\"}, States = {States.Count}")]
+        internal sealed class LifecycleImpl : ILifecycle
+        {
+            /// <summary>
+            /// Initializes a new instance of the LifecycleImpl class with the specified sequence of lifecycle states.
+            /// </summary>
+            /// <param name="states">The collection of lifecycle states to initialize the instance with. The last state in the sequence will
+            /// be set as the current state. Cannot be null.</param>
+            public LifecycleImpl(IEnumerable<ILifecycleState> states)
+            {
+                var arr = states is ILifecycleState[] sa ? sa : states.ToArray();
+                States = Array.AsReadOnly(arr);
+                Current = arr.Length == 0 ? default : arr[^1];
+            }
+
+            /// <inheritdoc/>
+            public IReadOnlyCollection<ILifecycleState> States { get; }
+
+            /// <inheritdoc/>
+            public ILifecycleState? Current { get; }
+        }
+    }
+}
+
+
+===== src/Zentient.Core/Registry.cs =====
+// <copyright file="Registry.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    /// <summary>
+    /// Provides factory methods for creating registry instances for managing concept objects in memory.
+    /// </summary>
+    /// <remarks>The Registry class supplies static methods to create new in-memory registries for types
+    /// implementing IConcept. Registries created through this class are suitable for scenarios where persistence is not
+    /// required and are typically used for testing, prototyping, or lightweight runtime management of concept
+    /// instances. The returned registries are thread-safe and support observer and tracing integration if
+    /// provided.</remarks>
+    public static class Registry
+    {
+        /// <summary>
+        /// Creates a new in-memory registry for storing and managing concept instances of the specified type.
+        /// </summary>
+        /// <typeparam name="T">The type of concept to be stored in the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        /// <param name="observer">An optional observer that receives notifications about registry changes. If <see langword="null"/>, no
+        /// notifications are sent.</param>
+        /// <param name="traceSink">An optional trace sink used to record diagnostic or tracing information. If <see langword="null"/>, tracing
+        /// is disabled.</param>
+        /// <returns>An in-memory implementation of <see cref="IRegistry{T}"/> for managing concept instances.</returns>
+        public static IRegistry<T> NewInMemory<T>(IRegistryObserver<T>? observer = null, ITraceSink? traceSink = null) where T : IConcept
+            => new InMemoryRegistryImpl<T>(observer, traceSink);
+
+        /// <summary>
+        /// Provides an in-memory implementation of the <see cref="IRegistry{T}"/> interface for managing concept instances by ID and name.
+        /// </summary>
+        /// <remarks>This implementation stores all registered items in memory and is suitable for
+        /// scenarios where persistence is not required. All operations are thread-safe. Name lookups are
+        /// case-insensitive, while ID lookups are case-sensitive. This class is intended for internal use and is not
+        /// designed for distributed or persistent scenarios.</remarks>
+        /// <typeparam name="T">The type of concept managed by the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        [DebuggerDisplay("Registry<{typeof(T).Name}> (Count = {_byId.Count})")]
+        internal sealed class InMemoryRegistryImpl<T> : IRegistry<T> where T : IConcept
+        {
+            private readonly ConcurrentDictionary<string, T> _byId = new(StringComparer.Ordinal);
+            private readonly ConcurrentDictionary<string, string> _nameToId = new(StringComparer.OrdinalIgnoreCase);
+            private readonly ConcurrentDictionary<string, Lazy<Task<T>>> _inflight = new(StringComparer.Ordinal);
+            private readonly object _mutationLock = new();
+            private readonly IRegistryObserver<T>? _observer;
+            private readonly ITraceSink? _trace;
+
+            /// <summary>
+            /// Initializes a new instance of the InMemoryRegistryImpl class with the specified observer and trace sink.
+            /// </summary>
+            /// <param name="observer">An optional observer that receives notifications about registry changes. May be <see langword="null"/> if
+            /// not required.</param>
+            /// <param name="trace">An optional trace sink used to record diagnostic or tracing information. May be <see langword="null"/> if tracing is not
+            /// needed.</param>
+            public InMemoryRegistryImpl(IRegistryObserver<T>? observer = null, ITraceSink? trace = null)
+            {
+                _observer = observer;
+                _trace = trace;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetById(string id, out T? item)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                return _byId.TryGetValue(id, out item);
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetById(string id, out T? item, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                reason = null;
+                var found = _byId.TryGetValue(id, out item);
+                if (!found) reason = $"No item found with id '{id}'.";
+                return found;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByName(string name, out T? item)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+
+                if (_nameToId.TryGetValue(name, out var id) && _byId.TryGetValue(id, out var direct))
+                {
+                    item = direct;
+                    return true;
+                }
+
+                string? bestId = null;
+                T? bestMatch = default;
+
+                foreach (var v in _byId.Values)
+                {
+                    if (!string.Equals(v.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    if (bestId == null || string.CompareOrdinal(v.Id, bestId) < 0)
+                    {
+                        bestId = v.Id;
+                        bestMatch = v;
+                    }
+                }
+
+                if (bestMatch != null)
+                {
+                    item = bestMatch;
+                    _nameToId[name] = bestId!;
+                    return true;
+                }
+
+                item = default;
+                return false;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByName(string name, out T? item, out string? reason)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+                reason = null;
+
+                if (_nameToId.TryGetValue(name, out var id) && _byId.TryGetValue(id, out var direct))
+                {
+                    item = direct;
+                    return true;
+                }
+
+                item = _byId.Values.FirstOrDefault(v => string.Equals(v.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (item == null)
+                {
+                    reason = $"No item found with name '{name}'.";
+                    return false;
+                }
+
+                _nameToId[name] = item.Id;
+                reason = null;
+                return true;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByPredicate(Func<T, bool> predicate, out T? item)
+            {
+                ArgumentNullException.ThrowIfNull(predicate);
+                item = _byId.Values.FirstOrDefault(v => predicate(v));
+                return item != null;
+            }
+
+            /// <inheritdoc/>
+            public bool TryGetByPredicate(Func<T, bool> predicate, out T? item, out string? reason)
+            {
+                ArgumentNullException.ThrowIfNull(predicate);
+                item = _byId.Values.FirstOrDefault(predicate);
+                reason = item == null ? "No item found matching the specified predicate." : null;
+                return item != null;
+            }
+
+            /// <inheritdoc/>
+            IEnumerable<T> IReadOnlyRegistry<T>.ListAll() => _byId.Values.ToArray();
+
+            /// <inheritdoc/>
+            public ValueTask<RegistryResult> TryRegisterAsync(T concept, CancellationToken token = default)
+            {
+                ArgumentNullException.ThrowIfNull(concept, nameof(concept));
+                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Id, nameof(concept.Id));
+                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Name, nameof(concept.Name));
+                token.ThrowIfCancellationRequested();
+
+                var added = _byId.TryAdd(concept.Id, concept);
+
+                if (added)
+                {
+                    _nameToId.TryAdd(concept.Name, concept.Id);
+
+                    try
+                    {
+                        _observer?.OnRegistered(concept);
+                    }
+                    catch { /* best-effort */ }
+
+                    return new ValueTask<RegistryResult>(RegistryResult.Success(true));
+                }
+
+                if (_byId.TryGetValue(concept.Id, out var existing))
+                {
+                    if (!string.Equals(existing.Name, concept.Name, StringComparison.Ordinal))
+                    {
+                        var reason = $"Registry conflict: id '{concept.Id}' already registered with a different name.";
+                        return new ValueTask<RegistryResult>(RegistryResult.Failure(reason, Enumerable.Empty<string>()));
+                    }
+
+                    return new ValueTask<RegistryResult>(RegistryResult.Success(false));
+                }
+
+                return new ValueTask<RegistryResult>(RegistryResult.Failure("Unknown registry outcome"));
+            }
+
+            /// <inheritdoc/>
+            public ValueTask<RegistryRemoveResult> TryRemoveAsync(string id, CancellationToken token = default)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                token.ThrowIfCancellationRequested();
+
+                if (_byId.TryRemove(id, out var removed))
+                {
+                    _nameToId.TryRemove(removed.Name, out _);
+                    try
+                    {
+                        _observer?.OnRemoved(id);
+                    }
+                    catch { /* best-effort */ }
+                    return new ValueTask<RegistryRemoveResult>(new RegistryRemoveResult(true));
+                }
+
+                return new ValueTask<RegistryRemoveResult>(new RegistryRemoveResult(false, "Item not found"));
+            }
+
+            /// <inheritdoc/>
+            public async ValueTask<T> GetOrAddAsync(string id, Func<CancellationToken, Task<T>> factory, CancellationToken token = default)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                ArgumentNullException.ThrowIfNull(factory, nameof(factory));
+                token.ThrowIfCancellationRequested();
+
+                if (_byId.TryGetValue(id, out var exist))
+                {
+                    return exist;
+                }
+
+                var lazy = _inflight.GetOrAdd(id, _ => new Lazy<Task<T>>(async () => await FactoryWrapperAsync(id, factory, token).ConfigureAwait(false), LazyThreadSafetyMode.ExecutionAndPublication));
+
+                T created;
+
+                try
+                {
+                    created = await lazy.Value.ConfigureAwait(false);
+                }
+                catch
+                {
+                    _inflight.TryRemove(id, out _);
+                    throw;
+                }
+
+                return created;
+            }
+
+            private async ValueTask<T> FactoryWrapperAsync(string id, Func<CancellationToken, Task<T>> factory, CancellationToken token)
+            {
+                IDisposable? scope = null;
+                try
+                {
+                    scope = _trace?.Begin("registry.getoradd");
+                    var created = await factory(token).ConfigureAwait(false);
+
+                    lock (_mutationLock)
+                    {
+                        if (_byId.TryGetValue(id, out var existing))
+                        {
+                            return existing;
+                        }
+
+                        _byId[id] = created;
+                        _nameToId[created.Name] = created.Id;
+                    }
+
+                    try
+                    {
+                        _observer?.OnRegistered(created);
+                    }
+                    catch { /* best-effort */ }
+                    return created;
+                }
+                finally
+                {
+                    _inflight.TryRemove(id, out _);
+                    scope?.Dispose();
+                }
+            }
+        }
+    }
+}
+
+
+===== src/Zentient.Core/RegistryRemoveResult.cs =====
+// <copyright file="RegistryRemoveResult.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    /// <summary>
+    /// Result returned from registry remove attempts.
+    /// </summary>
+    public readonly struct RegistryRemoveResult
+    {
+        /// <summary>
+        /// Gets a value indicating whether the item has been removed.
+        /// </summary>
+        public bool Removed { get; }
+
+        /// <summary>
+        /// Gets the reason associated with the current state or result, if available.
+        /// </summary>
+        public string? Reason { get; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RegistryRemoveResult"/> class with the specified removal status and optional
+        /// reason.
+        /// </summary>
+        /// <param name="removed">A value indicating whether the registry entry was successfully removed.</param>
+        /// <param name="reason">An optional message describing the reason for the removal result. May be null if no additional information
+        /// is available.</param>
+        public RegistryRemoveResult(bool removed, string? reason = null)
+        {
+            Removed = removed;
+            Reason = reason;
+        }
+
+        /// <summary>
+        /// Returns a string that represents the current state of the registry removal result.
+        /// </summary>
+        /// <returns>A string indicating whether the registry entry was removed. If removed, returns "RegistryRemoveResult: Removed";
+        /// otherwise, returns "RegistryRemoveResult: NotRemoved - {Reason}", where {Reason} provides the reason for the
+        /// failure.</returns>
+        public override string ToString() => Removed ? "RegistryRemoveResult: Removed" : $"RegistryRemoveResult: NotRemoved - {Reason}";
+    }
+}
+
+
+===== src/Zentient.Core/RegistryResult.cs =====
+// <copyright file="RegistryResult.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Collections.Generic;
+
+    /// <summary>
+    /// Result returned from registry registration attempts.
+    /// Must be used by async try-style registration methods so callers receive rich outcome context.
+    /// </summary>
+    public readonly struct RegistryResult
+    {
+        /// <summary>
+        /// Creates a successful registration result.
+        /// </summary>
+        public static RegistryResult Success(bool added)
+            => new(added, reason: null, conflicts: Array.Empty<string>());
+
+        /// <summary>
+        /// Creates a failed registration result with reason and optional conflicts.
+        /// </summary>
+        /// <param name="reason">Human readable reason for the failure.</param>
+        /// <param name="conflicts">Optional list of conflicting keys or other contextual conflict identifiers.</param>
+        public static RegistryResult Failure(string reason, IEnumerable<string>? conflicts = null)
+            => new(false, reason, conflicts ?? Array.Empty<string>());
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="added">Indicates whether the item was added.</param>
+        /// <param name="reason">Human readable reason for a non-success outcome (validation/conflict). Null on success.</param>
+        /// <param name="conflicts">Optional list of conflicting keys or other contextual conflict identifiers.</param>
+        /// <remarks>Use static factory methods <see cref="Success(bool)"/> and <see cref="Failure(string, IEnumerable{string}?)"/> instead.</remarks>
+        private RegistryResult(bool added, string? reason, IEnumerable<string> conflicts)
+        {
+            Added = added;
+            Reason = reason;
+            Conflicts = conflicts ?? Array.Empty<string>();
+        }
+
+        /// <summary>
+        /// True when the item was added; false when it already existed or the operation was rejected.
+        /// </summary>
+        public bool Added { get; }
+
+        /// <summary>
+        /// Human readable reason for a non-success outcome (validation/conflict). Null on success.
+        /// </summary>
+        public string? Reason { get; }
+
+        /// <summary>
+        /// Optional list of conflicting keys or other contextual conflict identifiers.
+        /// </summary>
+        public IEnumerable<string> Conflicts { get; }
+
+        /// <summary>
+        /// Returns a string that represents the current registry operation result.
+        /// </summary>
+        /// <returns>A string describing whether the registry operation was added successfully or failed, including the failure
+        /// reason if applicable.</returns>
+        public override string ToString() => Added ? "RegistryResult: Added" : $"RegistryResult: Failed - {Reason}";
+    }
+}
+
+
+===== src/Zentient.Core/Serialization.cs =====
+// <copyright file="Serialization.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Core
+{
+    using System;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    /// <summary>
+    /// Serialization helpers and fallback implementations.
+    /// </summary>
+    public static class Serialization
+    {
+        /// <summary>
+        /// Returns a serializer instance that does not support serialization or deserialization operations.
+        /// </summary>
+        /// <remarks>Use this method when serialization functionality is intentionally unsupported or
+        /// should be disabled. The returned serializer will throw exceptions if any serialization or deserialization
+        /// methods are called.</remarks>
+        /// <returns>An <see cref="ISerializer"/> implementation that throws <see cref="NotSupportedException"/> for all
+        /// serialization and deserialization methods.</returns>
+        public static ISerializer Default() => new NotSupportedSerializer();
+
+        /// <summary>
+        /// Returns a default asynchronous serializer instance that does not support serialization or deserialization
+        /// operations.
+        /// </summary>
+        /// <remarks>This default implementation is intended for scenarios where asynchronous
+        /// serialization is not supported or required. All method calls on the returned instance will result in a <see
+        /// cref="NotSupportedException"/> being thrown.</remarks>
+        /// <returns>An <see cref="ISerializerAsync"/> implementation that throws <see cref="NotSupportedException"/> for all
+        /// serialization and deserialization methods.</returns>
+        public static ISerializerAsync DefaultAsync() => new NotSupportedSerializer();
+
+        /// <summary>
+        /// Represents a serializer that does not support serialization or deserialization operations.
+        /// </summary>
+        /// <remarks>This type is used as a placeholder when no serializer implementation is available.
+        /// All methods throw a NotSupportedException. To enable serialization, add a formatter package (such as
+        /// Zentient.Formatters.Json) or provide an ISerializer implementation via your host.</remarks>
+        [DebuggerNonUserCode]
+        [ExcludeFromCodeCoverage]
+        internal sealed class NotSupportedSerializer : ISerializer, ISerializerAsync
+        {
+            private const string Message = "No serializer implementation available. Add a formatter package (e.g., Zentient.Formatters.Json) or plug ISerializer via your host.";
+
+            /// <inheritdoc/>
+            [StackTraceHidden] public string Serialize<T>(T item) => throw new NotSupportedException(Message);
+
+            /// <inheritdoc/>
+            [StackTraceHidden] public T? Deserialize<T>(string payload) => throw new NotSupportedException(Message);
+
+            /// <inheritdoc/>
+            [StackTraceHidden] public Task<string> SerializeAsync<T>(T item, CancellationToken token = default) => throw new NotSupportedException(Message);
+
+            /// <inheritdoc/>
+            [StackTraceHidden] public Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default) => throw new NotSupportedException(Message);
+        }
+    }
+}

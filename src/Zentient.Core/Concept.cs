@@ -6,40 +6,57 @@
 namespace Zentient.Core
 {
     using System;
+    using System.Diagnostics;
+
+    using Zentient.Metadata;
 
     /// <summary>
-    /// Facade factory helpers for creating concept instances.
+    /// Public factory facade for creating concept instances.
+    /// Concrete implementations are internal to allow binary compatibility improvements.
     /// </summary>
     public static class Concept
     {
         /// <summary>
-        /// Creates a new <see cref="IConcept"/> instance.
+        /// Creates a new concept instance with the specified key, display name, and optional description and metadata
+        /// tags.
         /// </summary>
-        /// <param name="id">Stable identifier for the concept. Must not be null or whitespace.</param>
-        /// <param name="name">Human-readable name for the concept. Must not be null or whitespace.</param>
-        /// <param name="description">Optional description for the concept.</param>
-        /// <returns>A new <see cref="IConcept"/> instance.</returns>
-        public static IConcept Create(string id, string name, string? description = null)
-            => new InternalConcept(id, name, description, validate: true);
+        /// <remarks>The returned concept is guaranteed to have a unique identifier. Validation is
+        /// performed to ensure required parameters are provided.</remarks>
+        /// <param name="key">The unique key that identifies the concept. Cannot be null or empty.</param>
+        /// <param name="displayName">The display name for the concept. Cannot be null or empty.</param>
+        /// <param name="description">An optional description providing additional details about the concept, or null if no description is
+        /// required.</param>
+        /// <param name="tags">Optional metadata tags associated with the concept. If null, an empty metadata collection is used.</param>
+        /// <returns>An <see cref="IConcept"/> representing the newly created concept with the specified properties.</returns>
+
+        public static IConcept Create(string key, string displayName, string? description = null, IMetadata? tags = null)
+            => new InternalConcept(Guid.NewGuid(), key, displayName, description, tags ?? Zentient.Metadata.Metadata.Empty, validate: true);
 
         /// <summary>
-        /// Creates a new <see cref="IIdentifiable"/> instance which also carries a <see cref="Guid"/> identity.
+        /// Creates a new concept instance with a unique identifier, key, display name, and optional metadata.
         /// </summary>
-        /// <param name="guidId">The <see cref="Guid"/> identifier. Must not be <see cref="Guid.Empty"/>.</param>
-        /// <param name="id">Stable identifier for the concept. Must not be <see langword="null"/> or whitespace.</param>
-        /// <param name="name">Human-readable name for the concept. Must not be <see langword="null"/> or whitespace.</param>
-        /// <param name="description">Optional description for the concept.</param>
-        /// <returns>A new <see cref="IIdentifiable"/> instance.</returns>
-        public static IIdentifiable CreateIdentifiable(Guid guidId, string id, string name, string? description = null)
-            => new InternalIdentifiable(guidId, id, name, description);
+        /// <param name="guidId">The globally unique identifier to assign to the concept. Must not be an empty GUID.</param>
+        /// <param name="key">The key that uniquely identifies the concept within its domain. Cannot be null or empty.</param>
+        /// <param name="displayName">The display name for the concept, used for presentation purposes. Cannot be null or empty.</param>
+        /// <param name="description">An optional description providing additional details about the concept. May be null.</param>
+        /// <param name="tags">Optional metadata tags associated with the concept. If null, an empty metadata collection is used.</param>
+        /// <returns>An <see cref="IConcept"/> instance representing the newly created concept with the specified properties.</returns>
+        public static IConcept CreateIdentifiable(Guid guidId, string key, string displayName, string? description = null, IMetadata? tags = null)
+            => new InternalConcept(guidId, key, displayName, description, tags ?? Zentient.Metadata.Metadata.Empty, validate: true);
+
 
         /// <summary>
-        /// Internal implementation of <see cref="IConcept"/>.
+        /// Represents a concept with a unique identifier, key, display name, optional description, and associated
+        /// metadata tags.
         /// </summary>
-        /// <param name="Id">The stable identifier.</param>
-        /// <param name="Name">The human-readable name.</param>
-        /// <param name="Description">The optional description.</param>
-        internal record InternalConcept(string Id, string Name, string? Description = null) : IConcept
+        /// <param name="GuidId">The globally unique identifier that distinguishes this concept from others.</param>
+        /// <param name="Key">The stable key used to reference the concept programmatically.</param>
+        /// <param name="DisplayName">The human-readable name of the concept.</param>
+        /// <param name="Description">An optional description providing additional details about the concept, or <see langword="null"/> if not
+        /// specified.</param>
+        /// <param name="Tags">The metadata tags associated with the concept, providing supplementary information.</param>
+        [DebuggerDisplay("{Key} ({DisplayName})")]
+        internal sealed record InternalConcept(Guid GuidId, string Key, string DisplayName, string? Description, IMetadata Tags) : IConcept
         {
             /// <summary>
             /// Initializes a new instance of the <see cref="InternalConcept"/> class.
@@ -47,88 +64,39 @@ namespace Zentient.Core
             /// <remarks>
             /// This constructor is primarily for use by the serialization infrastructure.
             /// </remarks>
-            public InternalConcept() : this(string.Empty, string.Empty, null) { }
+            [Obsolete("Parameterless ctor intended only for serializers.", true)]
+            public InternalConcept() : this(Guid.Empty, string.Empty, string.Empty, null, Zentient.Metadata.Metadata.Empty) { }
 
             /// <summary>
-            /// Initializes a new instance of the <see cref="InternalConcept"/> class with optional validation.
+            /// Initializes a new instance of the InternalConcept class using the specified key, display name,
+            /// description, and metadata, with optional input validation.
             /// </summary>
-            /// <param name="id">The stable identifier.</param>
-            /// <param name="name">The human-readable name.</param>
-            /// <param name="description">The optional description.</param>
-            /// <param name="validate">If <see langword="true"/>, performs validation on <paramref name="id"/> and 
-            /// <paramref name="name"/>.</param>
-            internal InternalConcept(string id, string name, string? description, bool validate)
-                : this(id, name, description)
-            {
-                if (validate)
-                {
-                    ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
-                    ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
-
-                    if (description is not null && description.Length == 0)
-                    {
-                        throw new ArgumentException("Description must be null or a non-empty string.", nameof(description));
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Internal implementation of <see cref="IIdentifiable"/>.
-        /// </summary>
-        /// <param name="GuidId">The <see cref="Guid"/> identifier.</param>
-        /// <param name="Id">The stable identifier.</param>
-        /// <param name="Name">The human-readable name.</param>
-        /// <param name="Description">The optional description.</param>
-        /// <remarks>
-        /// This type inherits from <see cref="InternalConcept"/> to reuse its implementation of <see cref="IConcept"/>.
-        /// </remarks>
-        internal sealed record InternalIdentifiable(Guid GuidId, string Id, string Name, string? Description = null)
-                : InternalConcept(Id, Name, Description), IIdentifiable
-        {
-            /// <summary>
-            /// Initializes a new instance of the <see cref="InternalIdentifiable"/> class.
-            /// </summary>
-            /// <remarks>
-            /// This constructor is primarily for use by the serialization infrastructure.
-            /// </remarks>
-            public InternalIdentifiable() : this(Guid.Empty, string.Empty, string.Empty, null) { }
-
-            /// <summary>
-            /// Initializes a new instance of the InternalIdentifiable class with the specified identifiers and optional
-            /// validation.
-            /// </summary>
-            /// <param name="guidId">The unique GUID identifier for the object. Must not be <see cref="Guid.Empty"/> if <paramref
-            /// name="validate"/> is <see langword="true"/>.</param>
-            /// <param name="id">The string identifier for the object. Cannot be <see langword="null"/>, empty, or consist only of
-            /// white-space characters if <paramref name="validate"/> is <see langword="true"/>.</param>
-            /// <param name="name">The display name for the object. Cannot be <see langword="null"/>, empty, or consist only of white-space
+            /// <param name="guidId">The unique GUID identifier for the concept.</param>
+            /// <param name="key">The unique key that identifies the concept. Cannot be null, empty, or consist only of white-space
             /// characters if <paramref name="validate"/> is <see langword="true"/>.</param>
-            /// <param name="description">An optional description for the object, or <see langword="null"/> if no description is provided.</param>
-            /// <param name="validate">A value indicating whether to validate the input parameters. If <see langword="true"/>, the constructor
-            /// will validate that <paramref name="guidId"/>, <paramref name="id"/>, and <paramref name="name"/> meet
-            /// their requirements.</param>
-            /// <exception cref="ArgumentException">Thrown if <paramref name="validate"/> is <see langword="true"/> and <paramref name="guidId"/> is <see
-            /// cref="Guid.Empty"/>, or if <paramref name="id"/> or <paramref name="name"/> is <see langword="null"/>,
-            /// empty, or consists only of white-space characters.</exception>
-            internal InternalIdentifiable(Guid guidId, string id, string name, string? description, bool validate)
-                : this(guidId, id, name, description)
+            /// <param name="displayName">The display name for the concept. Cannot be null, empty, or consist only of white-space characters if
+            /// <paramref name="validate"/> is <see langword="true"/>.</param>
+            /// <param name="description">An optional description of the concept. If provided and <paramref name="validate"/> is <see
+            /// langword="true"/>, must be a non-empty string.</param>
+            /// <param name="tags">The metadata associated with the concept.</param>
+            /// <param name="validate">Indicates whether to validate the input parameters. If <see langword="true"/>, the constructor enforces
+            /// parameter constraints.</param>
+            /// <exception cref="ArgumentException">Thrown if <paramref name="validate"/> is <see langword="true"/> and <paramref name="key"/> or <paramref
+            /// name="displayName"/> is null, empty, or white space, or if <paramref name="description"/> is an empty
+            /// string.</exception>
+            internal InternalConcept(Guid guidId, string key, string displayName, string? description, IMetadata tags, bool validate)
+                : this(guidId, key, displayName, description, tags)
             {
-                if (validate)
-                {
-                    if (guidId == Guid.Empty)
-                    {
-                        throw new ArgumentException("GUID identifier must not be empty.", nameof(guidId));
-                    }
+                if (!validate) return;
+                if (guidId == Guid.Empty) throw new ArgumentException("GuidId must not be empty.", nameof(guidId));
 
-                    ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
-                    ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(displayName, nameof(displayName));
 
-                    if (description is not null && description.Length == 0)
-                    {
-                        throw new ArgumentException("Description must be null or a non-empty string.", nameof(description));
-                    }
-                }
+                if (description is not null && description.Length == 0)
+                    throw new ArgumentException("Description must be null or non-empty.", nameof(description));
+
+                if (tags is null) throw new ArgumentNullException(nameof(tags));
             }
         }
     }

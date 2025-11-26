@@ -1,4 +1,4 @@
-﻿// <copyright file="Lifecycles.cs" author="Zentient Framework Team">
+﻿// <copyright file="Lifecycle.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -7,12 +7,13 @@ namespace Zentient.Core
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
 
     /// <summary>
     /// Lifecycle helpers for building simple lifecycle representations.
     /// </summary>
-    public static class Lifecycles
+    public static class Lifecycle
     {
         /// <summary>
         /// Creates a new lifecycle instance from the specified collection of state names and entry times.
@@ -29,6 +30,7 @@ namespace Zentient.Core
         /// <summary>
         /// Represents the state of a lifecycle at a specific point in time.
         /// </summary>
+        [DebuggerDisplay("{Name} @ {EnteredAt}")]
         internal sealed class LifecycleStateImpl : ILifecycleState
         {
             /// <summary>
@@ -56,6 +58,7 @@ namespace Zentient.Core
         /// <remarks>This class is intended for internal use and implements the ILifecycle interface. The
         /// collection of states is read-only and reflects the ordered progression of lifecycle states. The current
         /// state is the most recent state in the sequence, or null if no states are present.</remarks>
+        [DebuggerDisplay("Current = {Current?.Name ?? \"<null>\"}, States = {States.Count}")]
         internal sealed class LifecycleImpl : ILifecycle
         {
             /// <summary>
