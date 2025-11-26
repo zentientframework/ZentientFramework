@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	
+	<ItemGroup>
+	  <ProjectReference Include="..\Zentient.Core\Zentient.Core.csproj" />
+	  <ProjectReference Include="..\Zentient.Core\Zentient.csproj" />
+	</ItemGroup>
+	
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>Zentient.Serialization.Json</RootNamespace>
+	</PropertyGroup>
+
+</Project>
