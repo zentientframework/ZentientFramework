@@ -171,12 +171,11 @@ namespace Zentient.Metadata.Tests
         public void Hashed_Remove_DownsizesToLinear()
         {
             var b = Metadata.NewBuilder();
-            for (int i = 0; i <= 8; i++) b.Set("k" + i, i);
-            var m = b.Build().Set("k9", 9); // Now hashed
-
+            for (int i = 0; i <= 7; i++) b.Set("k" + i, i); // 8 keys
+            var m = b.Build().Set("k8", 8); // Now hashed (9 -> hashed)
             m.GetType().Name.Should().Contain("Hashed");
 
-            var shrunk = m.Remove("k9");
+            var shrunk = m.Remove("k8"); // shrunk.Count == 8 -> should be Linear
             shrunk.GetType().Name.Should().Contain("Linear");
         }
 

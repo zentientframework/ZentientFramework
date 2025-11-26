@@ -23,6 +23,7 @@ namespace Zentient.Errors
         Error = 3,
 
         /// <summary>Critical/fatal condition that should abort the operation.</summary>
-        Fatal = 4
+        Fatal = 4,
+        Recoverable = 5
     }
 }

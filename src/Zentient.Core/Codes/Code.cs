@@ -25,6 +25,44 @@ namespace Zentient.Codes
             => new CodeBuilder<TDefinition>();
 
         /// <summary>
+        /// Creates a new code instance using the specified key, definition, metadata, and optional display name.
+        /// </summary>
+        /// <typeparam name="TDefinition">The type of the code definition to associate with the code instance. Must implement <see
+        /// cref="ICodeDefinition"/>.</typeparam>
+        /// <param name="key">The unique key that identifies the code instance. Cannot be null.</param>
+        /// <param name="definition">The code definition to associate with the instance. If null, a default definition is used.</param>
+        /// <param name="metadata">Optional metadata to attach to the code instance. If null, empty metadata is used.</param>
+        /// <param name="displayName">An optional display name for the code instance. If null, no display name is set.</param>
+        /// <returns>An <see cref="ICode{TDefinition}"/> representing the newly created code instance with the specified
+        /// parameters.</returns>
+        public static ICode<TDefinition> From<TDefinition>(string key, TDefinition? definition = default(TDefinition), IMetadata? metadata = null, string? displayName = null)
+            where TDefinition : ICodeDefinition
+        {
+            definition ??= Code.From<TDefinition>();
+            metadata ??= Zentient.Metadata.Metadata.Empty;
+            return new Code<TDefinition>(key, definition, metadata, displayName);
+        }
+
+        /// <summary>
+        /// Creates a new instance of the specified code definition type using its public parameterless constructor.
+        /// </summary>
+        /// <typeparam name="TDefinition">The type of code definition to instantiate. Must implement <see cref="ICodeDefinition"/> and have a public
+        /// parameterless constructor.</typeparam>
+        /// <returns>A new instance of <typeparamref name="TDefinition"/>.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if <typeparamref name="TDefinition"/> does not have a public parameterless constructor.</exception>
+        public static TDefinition From<TDefinition>() where TDefinition : ICodeDefinition
+        {
+            try
+            {
+                return Activator.CreateInstance<TDefinition>();
+            }
+            catch (MissingMethodException ex)
+            {
+                throw new InvalidOperationException($"Cannot create an instance of '{typeof(TDefinition).FullName}'. Ensure it has a public parameterless constructor or provide a definition instance explicitly.", ex);
+            }
+        }
+
+        /// <summary>
         /// Default builder implementation for typed codes.
         /// </summary>
         /// <typeparam name="TDefinition">Definition type.</typeparam>
@@ -175,5 +213,27 @@ namespace Zentient.Codes
 
         /// <inheritdoc/>
         public override string ToString() => Key;
+    }
+
+    internal sealed record CodeDefinition(string Key, string DisplayName, string? Description, Guid GuidId, IMetadata Tags) : ICodeDefinition
+    {
+        public CodeDefinition(string key, string displayName, string? description, Guid guidId, IMetadata tags, bool validate = true)
+            : this(key, displayName, description, guidId, tags)
+        {
+            if (validate)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(displayName, nameof(displayName));
+
+                if (description is not null && description.Length == 0)
+                {
+                    throw new ArgumentException("Description, if provided, must be a non-empty string.", nameof(description));
+                }
+                if (guidId == Guid.Empty)
+                {
+                    throw new ArgumentException("GuidId must be a non-empty GUID.", nameof(guidId));
+                }
+            }
+        }
     }
 }

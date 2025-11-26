@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Xunit;
 
@@ -59,8 +60,8 @@ namespace Zentient.Core.Tests
             var lc = Lifecycle.Create(states);
             // If implementation allows duplicates, they should both be present in order
             Assert.Equal(2, lc.States.Count);
-            Assert.Equal("A", ((List<ILifecycleState>)lc.States)[0].Name);
-            Assert.Equal("A", ((List<ILifecycleState>)lc.States)[1].Name);
+            Assert.Equal("A", lc.States.ElementAt(0).Name);
+            Assert.Equal("A", lc.States.ElementAt(1).Name);
         }
     }
 }

@@ -12,6 +12,8 @@ namespace Zentient.Results
     using System.Linq;
     using System.Threading.Tasks;
 
+    using Zentient.Codes;
+    using Zentient.Errors;
     using Zentient.Metadata;
 
     /// <summary>
@@ -87,7 +89,7 @@ namespace Zentient.Results
         /// <summary>Failure factory that uses an error builder and optional metadata builder.</summary>
         public static Result<T> Fail(Action<Error.Builder> configureError, Action<Zentient.Metadata.Metadata.Builder>? configureOperationalMetadata = null)
         {
-            var eb = new Error.Builder("UNKNOWN_ERROR", "An operation failed.");
+            var eb = new Error.Builder(Code.From<ICodeDefinition>("UNKNOWN_ERROR"), "An operation failed.");
             configureError?.Invoke(eb);
             var err = eb.Build();
 
@@ -283,7 +285,7 @@ namespace Zentient.Results
             var arr = src.ToArray();
             Array.Sort(arr, (a, b) =>
             {
-                var c = string.CompareOrdinal(a.Code, b.Code);
+                var c = string.CompareOrdinal(a.Code.Key, b.Code.Key);
                 if (c != 0) return c;
                 return string.CompareOrdinal(a.Message, b.Message);
             });
