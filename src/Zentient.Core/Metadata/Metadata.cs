@@ -157,6 +157,35 @@ namespace Zentient.Metadata
             }
 
             /// <summary>
+            /// Merges the metadata from the specified <paramref name="other"/> instance into the current builder,
+            /// combining nested metadata values recursively.
+            /// </summary>
+            /// <remarks>If both the current and the specified metadata contain values for the same
+            /// key and those values are themselves metadata objects, they are merged recursively. Otherwise, values
+            /// from <paramref name="other"/> overwrite existing values for matching keys.</remarks>
+            /// <param name="other">The metadata to merge into the current builder. If <paramref name="other"/> is <see langword="null"/>,
+            /// no changes are made.</param>
+            /// <returns>The current <see cref="Builder"/> instance with merged metadata.</returns>
+            public Builder DeepMerge(IMetadata other)
+            {
+                if (other is null) return this;
+                foreach (var kv in other)
+                {
+                    if (_staging.TryGetValue(kv.Key, out var existing))
+                    {
+                        if (existing is IMetadata em && kv.Value is IMetadata om)
+                        {
+                            var merged = Metadata.DeepMerge(em, om);
+                            _staging[kv.Key] = merged;
+                            continue;
+                        }
+                    }
+                    _staging[kv.Key] = kv.Value;
+                }
+                return this;
+            }
+
+            /// <summary>
             /// Produce an immutable <see cref="IMetadata"/> snapshot from the builder's staged entries.
             /// For small item counts an optimized linear representation is used; larger sets are hashed.
             /// </summary>
