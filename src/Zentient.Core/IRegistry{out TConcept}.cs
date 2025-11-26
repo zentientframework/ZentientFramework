@@ -8,6 +8,7 @@ namespace Zentient.Core
     using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using Zentient.Concepts;
 
     /// <summary>
     /// Minimal async-friendly registry contract.

@@ -3,11 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Concepts
 {
     using System;
     using System.Diagnostics;
-
     using Zentient.Metadata;
 
     /// <summary>
@@ -85,15 +84,26 @@ namespace Zentient.Core
             /// name="displayName"/> is null, empty, or white space, or if <paramref name="description"/> is an empty
             /// string.</exception>
             internal InternalConcept(Guid guidId, string key, string displayName, string? description, IMetadata tags, bool validate)
-                : this(guidId, key, displayName, description, tags)
+                : this(
+                    guidId,
+                    key?.Trim()!,
+                    displayName?.Trim()!,
+                    description?.Trim(),
+                    tags)
             {
                 if (!validate) return;
+
+                // Use normalized (trimmed) variants for validation to ensure consistent behavior
+                var normKey = key is null ? string.Empty : key.Trim();
+                var normDisplay = displayName is null ? string.Empty : displayName.Trim();
+                var normDescription = description is null ? null : description.Trim();
+
                 if (guidId == Guid.Empty) throw new ArgumentException("GuidId must not be empty.", nameof(guidId));
 
-                ArgumentException.ThrowIfNullOrWhiteSpace(key, nameof(key));
-                ArgumentException.ThrowIfNullOrWhiteSpace(displayName, nameof(displayName));
+                ArgumentException.ThrowIfNullOrWhiteSpace(normKey, nameof(key));
+                ArgumentException.ThrowIfNullOrWhiteSpace(normDisplay, nameof(displayName));
 
-                if (description is not null && description.Length == 0)
+                if (normDescription is not null && normDescription.Length == 0)
                     throw new ArgumentException("Description must be null or non-empty.", nameof(description));
 
                 if (tags is null) throw new ArgumentNullException(nameof(tags));

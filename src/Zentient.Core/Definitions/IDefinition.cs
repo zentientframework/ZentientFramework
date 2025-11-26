@@ -5,7 +5,7 @@
 
 namespace Zentient.Definitions
 {
-    using Zentient.Core;
+    using Zentient.Concepts;
 
     /// <summary>
     /// Represents a conceptual definition within the domain model.

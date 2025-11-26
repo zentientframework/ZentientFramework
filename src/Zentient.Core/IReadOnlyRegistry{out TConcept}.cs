@@ -7,6 +7,7 @@ namespace Zentient.Core
 {
     using System;
     using System.Collections.Generic;
+    using Zentient.Concepts;
 
     /// <summary>
     /// Read-only registry contract. Provides deterministic lookup by id and by name.

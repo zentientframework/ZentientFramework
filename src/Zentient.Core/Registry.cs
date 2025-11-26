@@ -12,6 +12,7 @@ namespace Zentient.Core
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Zentient.Concepts;
 
     /// <summary>
     /// Provides factory methods for creating registry instances for managing concept objects in memory.
@@ -26,14 +27,15 @@ namespace Zentient.Core
         /// <summary>
         /// Creates a new in-memory registry for storing and managing concept instances of the specified type.
         /// </summary>
-        /// <typeparam name="T">The type of concept to be stored in the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        /// <typeparam name="TConcept">The type of concept to be stored in the registry. Must implement <see cref="IConcept"/>.</typeparam>
         /// <param name="observer">An optional observer that receives notifications about registry changes. If <see langword="null"/>, no
         /// notifications are sent.</param>
         /// <param name="traceSink">An optional trace sink used to record diagnostic or tracing information. If <see langword="null"/>, tracing
         /// is disabled.</param>
         /// <returns>An in-memory implementation of <see cref="IRegistry{T}"/> for managing concept instances.</returns>
-        public static IRegistry<T> NewInMemory<T>(IRegistryObserver<T>? observer = null, ITraceSink? traceSink = null) where T : IConcept
-            => new InMemoryRegistryImpl<T>(observer, traceSink);
+        public static IRegistry<TConcept> NewInMemory<TConcept>(IRegistryObserver<TConcept>? observer = null, ITraceSink? traceSink = null)
+            where TConcept : IConcept
+            => new InMemoryRegistryImpl<TConcept>(observer, traceSink);
 
         /// <summary>
         /// Provides an in-memory implementation of the <see cref="IRegistry{T}"/> interface for managing concept instances by ID and name.
@@ -42,15 +44,15 @@ namespace Zentient.Core
         /// scenarios where persistence is not required. All operations are thread-safe. Name lookups are
         /// case-insensitive, while ID lookups are case-sensitive. This class is intended for internal use and is not
         /// designed for distributed or persistent scenarios.</remarks>
-        /// <typeparam name="T">The type of concept managed by the registry. Must implement <see cref="IConcept"/>.</typeparam>
+        /// <typeparam name="TConcept">The type of concept managed by the registry. Must implement <see cref="IConcept"/>.</typeparam>
         [DebuggerDisplay("Registry<{typeof(T).Name}> (Count = {_byId.Count})")]
-        internal sealed class InMemoryRegistryImpl<T> : IRegistry<T> where T : IConcept
+        internal sealed class InMemoryRegistryImpl<TConcept> : IRegistry<TConcept> where TConcept : IConcept
         {
-            private readonly ConcurrentDictionary<string, T> _byId = new(StringComparer.Ordinal);
+            private readonly ConcurrentDictionary<string, TConcept> _byId = new(StringComparer.Ordinal);
             private readonly ConcurrentDictionary<string, string> _nameToId = new(StringComparer.OrdinalIgnoreCase);
-            private readonly ConcurrentDictionary<string, Lazy<Task<T>>> _inflight = new(StringComparer.Ordinal);
+            private readonly ConcurrentDictionary<string, Lazy<Task<TConcept>>> _inflight = new(StringComparer.Ordinal);
             private readonly object _mutationLock = new();
-            private readonly IRegistryObserver<T>? _observer;
+            private readonly IRegistryObserver<TConcept>? _observer;
             private readonly ITraceSink? _trace;
 
             /// <summary>
@@ -60,21 +62,21 @@ namespace Zentient.Core
             /// not required.</param>
             /// <param name="trace">An optional trace sink used to record diagnostic or tracing information. May be <see langword="null"/> if tracing is not
             /// needed.</param>
-            public InMemoryRegistryImpl(IRegistryObserver<T>? observer = null, ITraceSink? trace = null)
+            public InMemoryRegistryImpl(IRegistryObserver<TConcept>? observer = null, ITraceSink? trace = null)
             {
                 _observer = observer;
                 _trace = trace;
             }
 
             /// <inheritdoc/>
-            public bool TryGetById(string id, out T? item)
+            public bool TryGetById(string id, out TConcept? item)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
                 return _byId.TryGetValue(id, out item);
             }
 
             /// <inheritdoc/>
-            public bool TryGetById(string id, out T? item, out string? reason)
+            public bool TryGetById(string id, out TConcept? item, out string? reason)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
                 reason = null;
@@ -84,7 +86,7 @@ namespace Zentient.Core
             }
 
             /// <inheritdoc/>
-            public bool TryGetByName(string name, out T? item)
+            public bool TryGetByName(string name, out TConcept? item)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
 
@@ -95,9 +97,9 @@ namespace Zentient.Core
                 }
 
                 string? bestId = null;
-                T? bestMatch = default;
+                TConcept? bestMatch = default;
 
-                foreach (T v in _byId.Values)
+                foreach (TConcept v in _byId.Values)
                 {
                     if (!string.Equals(v.DisplayName, name, StringComparison.OrdinalIgnoreCase)) continue;
 
@@ -120,7 +122,7 @@ namespace Zentient.Core
             }
 
             /// <inheritdoc/>
-            public bool TryGetByName(string name, out T? item, out string? reason)
+            public bool TryGetByName(string name, out TConcept? item, out string? reason)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
                 reason = null;
@@ -144,7 +146,7 @@ namespace Zentient.Core
             }
 
             /// <inheritdoc/>
-            public bool TryGetByPredicate(Func<T, bool> predicate, out T? item)
+            public bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item)
             {
                 ArgumentNullException.ThrowIfNull(predicate);
                 item = _byId.Values.FirstOrDefault(v => predicate(v));
@@ -152,7 +154,7 @@ namespace Zentient.Core
             }
 
             /// <inheritdoc/>
-            public bool TryGetByPredicate(Func<T, bool> predicate, out T? item, out string? reason)
+            public bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item, out string? reason)
             {
                 ArgumentNullException.ThrowIfNull(predicate);
                 item = _byId.Values.FirstOrDefault(predicate);
@@ -161,10 +163,10 @@ namespace Zentient.Core
             }
 
             /// <inheritdoc/>
-            IEnumerable<T> IReadOnlyRegistry<T>.ListAll() => _byId.Values.ToArray();
+            IEnumerable<TConcept> IReadOnlyRegistry<TConcept>.ListAll() => _byId.Values.ToArray();
 
             /// <inheritdoc/>
-            public ValueTask<RegistryResult> TryRegisterAsync(T concept, CancellationToken token = default)
+            public ValueTask<RegistryResult> TryRegisterAsync(TConcept concept, CancellationToken token = default)
             {
                 ArgumentNullException.ThrowIfNull(concept, nameof(concept));
                 ArgumentException.ThrowIfNullOrWhiteSpace(concept.Key, nameof(concept.Key));
@@ -221,7 +223,7 @@ namespace Zentient.Core
             }
 
             /// <inheritdoc/>
-            public async ValueTask<T> GetOrAddAsync(string id, Func<CancellationToken, Task<T>> factory, CancellationToken token = default)
+            public async ValueTask<TConcept> GetOrAddAsync(string id, Func<CancellationToken, Task<TConcept>> factory, CancellationToken token = default)
             {
                 ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
                 ArgumentNullException.ThrowIfNull(factory, nameof(factory));
@@ -232,9 +234,9 @@ namespace Zentient.Core
                     return exist;
                 }
 
-                var lazy = _inflight.GetOrAdd(id, _ => new Lazy<Task<T>>(async () => await FactoryWrapperAsync(id, factory, token).ConfigureAwait(false), LazyThreadSafetyMode.ExecutionAndPublication));
+                var lazy = _inflight.GetOrAdd(id, _ => new Lazy<Task<TConcept>>(async () => await FactoryWrapperAsync(id, factory, token).ConfigureAwait(false), LazyThreadSafetyMode.ExecutionAndPublication));
 
-                T created;
+                TConcept created;
 
                 try
                 {
@@ -249,7 +251,7 @@ namespace Zentient.Core
                 return created;
             }
 
-            private async ValueTask<T> FactoryWrapperAsync(string id, Func<CancellationToken, Task<T>> factory, CancellationToken token)
+            private async ValueTask<TConcept> FactoryWrapperAsync(string id, Func<CancellationToken, Task<TConcept>> factory, CancellationToken token)
             {
                 IDisposable? scope = null;
                 try

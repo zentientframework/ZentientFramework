@@ -10,7 +10,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using Zentient.Metadata;
 
-namespace Zentient.Core
+namespace Zentient.Concepts
 {
     // -----------------------------------------------------------------------
     // 5. DOMAIN KERNEL: The Canonical Concept Model

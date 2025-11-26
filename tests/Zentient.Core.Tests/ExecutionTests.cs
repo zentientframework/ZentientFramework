@@ -7,7 +7,7 @@ using Xunit;
 
 using Zentient.Core;
 
-namespace Zentient.Core.Tests
+namespace Zentient.Tests
 {
     public class ExecutionTests
     {

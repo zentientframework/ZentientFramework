@@ -1,19 +1,22 @@
-﻿using System;
-
-using Xunit;
-
-namespace Zentient.Core.Tests
+﻿namespace Zentient.Tests
 {
+    using FluentAssertions;
+    using System;
+    using Xunit;
+    using Zentient.Concepts;
+
+    // Use FluentAssertions
     public class ConceptTests
     {
         [Fact]
         public void Create_ValidInputs_ReturnsIConcept()
         {
             var c = Concept.Create("com.example:thing", "Thing", "A thing");
-            Assert.NotNull(c);
-            Assert.Equal("com.example:thing", c.Key);
-            Assert.Equal("Thing", c.DisplayName);
-            Assert.Equal("A thing", c.Description);
+            c.Should().BeAssignableTo<IConcept>();
+            c.Should().NotBeNull();
+            c.Key.Should().Be("com.example:thing");
+            c.DisplayName.Should().Be("Thing");
+            c.Description.Should().Be("A thing");
         }
 
         [Theory]
@@ -22,7 +25,8 @@ namespace Zentient.Core.Tests
         [InlineData("")]
         public void Create_InvalidId_Throws(string badId)
         {
-            Assert.Throws<ArgumentException>(() => Concept.Create(badId, "Name"));
+            Action func = () => Concept.Create(badId, "name");
+            func.Should().Throw<ArgumentException>();
         }
 
         [Theory]
@@ -31,13 +35,15 @@ namespace Zentient.Core.Tests
         [InlineData("")]
         public void Create_InvalidName_Throws(string badName)
         {
-            Assert.Throws<ArgumentException>(() => Concept.Create("id", badName));
+            Action func = () => Concept.Create("id", badName);
+            func.Should().Throw<ArgumentException>();
         }
 
         [Fact]
         public void Create_EmptyDescription_Throws()
         {
-            Assert.Throws<ArgumentException>(() => Concept.Create("id", "name", ""));
+            Action func = () => Concept.Create("id:thing", "Name", "");
+            func.Should().Throw<ArgumentException>();
         }
 
         [Fact]
@@ -45,8 +51,8 @@ namespace Zentient.Core.Tests
         {
             // ensure null description is allowed if implementation supports it
             var c = Concept.Create("id:thing", "Name", null);
-            Assert.NotNull(c);
-            Assert.Null(c.Description);
+            c.Should().NotBeNull();
+            c.Description.Should().BeNull();
         }
 
         [Fact]
@@ -58,15 +64,19 @@ namespace Zentient.Core.Tests
             Assert.Equal(gid, ident.GuidId);
 
             var asConcept = (IConcept)ident;
-            Assert.Equal("com.example:id", asConcept.Key);
-            Assert.Equal("Ident", asConcept.DisplayName);
-            Assert.Equal("desc", asConcept.Description);
+            var key = asConcept.Key;
+            var displayName = asConcept.DisplayName;
+            var description = asConcept.Description;
+            key.Should().StartWith("com.example:id");
+            displayName.Should().StartWith("Ident");
+            description.Should().StartWith("desc");
         }
 
         [Fact]
         public void CreateIdentifiable_EmptyGuid_Throws()
         {
-            Assert.Throws<ArgumentException>(() => Concept.CreateIdentifiable(Guid.Empty, "id", "name"));
+            var action = () => Concept.CreateIdentifiable(Guid.Empty, "id", "name", "desc");
+            action.Should().Throw<ArgumentException>();
         }
 
         [Theory]
@@ -75,14 +85,18 @@ namespace Zentient.Core.Tests
         [InlineData("")]
         public void CreateIdentifiable_InvalidIdOrName_Throws(string bad)
         {
-            Assert.Throws<ArgumentException>(() => Concept.CreateIdentifiable(Guid.NewGuid(), bad, "name"));
-            Assert.Throws<ArgumentException>(() => Concept.CreateIdentifiable(Guid.NewGuid(), "id", bad));
+            var action1 = () => Concept.CreateIdentifiable(Guid.NewGuid(), bad, "name");
+            action1.Should().Throw<ArgumentException>();
+
+            var action2 = () => Concept.CreateIdentifiable(Guid.NewGuid(), "id", bad);
+            action2.Should().Throw<ArgumentException>();
         }
 
         [Fact]
         public void CreateIdentifiable_EmptyDescription_Throws()
         {
-            Assert.Throws<ArgumentException>(() => Concept.CreateIdentifiable(Guid.NewGuid(), "id", "name", ""));
+            var action = () => Concept.CreateIdentifiable(Guid.NewGuid(), "id", "name", "");
+            action.Should().Throw<ArgumentException>();
         }
 
         [Fact]
@@ -90,9 +104,11 @@ namespace Zentient.Core.Tests
         {
             // If implementation trims inputs, create with whitespace and verify normalized values.
             var c = Concept.Create("  com.example:trim  ", "  TrimName  ", "desc");
-            Assert.NotNull(c);
-            Assert.Equal("com.example:trim", c.Key.Trim()); // tolerant check
-            Assert.Equal("TrimName", c.DisplayName.Trim());
+
+            c.Should().NotBeNull();
+            c.Key.Should().Be("com.example:trim"); // tolerant check
+            c.DisplayName.Should().Be("TrimName"); // tolerant check
+            c.Description.Should().Be("desc"); // tolerant check
         }
     }
 }

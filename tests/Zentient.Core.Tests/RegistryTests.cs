@@ -1,26 +1,28 @@
-﻿using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+﻿// <copyright file="RegistryTests.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
 
-using Xunit;
-
-using Zentient.Core;
-using Zentient.Metadata;
-
-namespace Zentient.Core.Tests
+namespace Zentient.Tests
 {
+    using FluentAssertions;
+    using System;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Xunit;
+    using Zentient.Concepts;
+    using Zentient.Core;
+    using Zentient.Metadata;
+
     public class RegistryTests
     {
         private record TestConcept(string Id, string Name, string? Description = null) : IConcept
         {
-            public string Key { get; set; }
-
-            public string DisplayName { get; set; }
-
+            public string Key { get; set; } = Id;
+            public string DisplayName { get; set; } = Name;
             public Guid GuidId { get; set; }
-
-            public IMetadata Tags { get; set; }
+            public IMetadata Tags { get; set; } = Metadata.Empty;
         }
 
         [Fact]
@@ -28,18 +30,19 @@ namespace Zentient.Core.Tests
         {
             var reg = Registry.NewInMemory<TestConcept>();
             var item = new TestConcept("id1", "Name1");
+
             var r1 = await reg.TryRegisterAsync(item);
-            Assert.True(r1.Added);
+            r1.Added.Should().BeTrue();
 
             // registering same id with same name returns success false
             var r2 = await reg.TryRegisterAsync(item);
-            Assert.False(r2.Added);
+            r2.Added.Should().BeFalse();
 
             // registering same id with different name fails
             var conflict = new TestConcept("id1", "OtherName");
             var r3 = await reg.TryRegisterAsync(conflict);
-            Assert.False(r3.Added);
-            Assert.NotNull(r3.Reason);
+            r3.Added.Should().BeFalse();
+            r3.Reason.Should().NotBeNullOrEmpty();
         }
 
         [Fact]
@@ -50,11 +53,11 @@ namespace Zentient.Core.Tests
             await reg.TryRegisterAsync(item);
 
             var rem1 = await reg.TryRemoveAsync("id2");
-            Assert.True(rem1.Removed);
+            rem1.Removed.Should().BeTrue();
 
             var rem2 = await reg.TryRemoveAsync("id2");
-            Assert.False(rem2.Removed);
-            Assert.NotNull(rem2.Reason);
+            rem2.Removed.Should().BeFalse();
+            rem2.Reason.Should().NotBeNullOrEmpty();
         }
 
         [Fact]
@@ -67,14 +70,14 @@ namespace Zentient.Core.Tests
             await reg.TryRegisterAsync(b);
 
             // deterministic first-match by id ordering: ida < idb
-            Assert.True(reg.TryGetByName("SameName", out var found, out var reason));
-            Assert.Null(reason);
-            Assert.NotNull(found);
-            Assert.Equal("ida", found.Id);
+            reg.TryGetByName("SameName", out var found, out var reason).Should().BeTrue();
+            reason.Should().BeNull();
+            found.Should().NotBeNull();
+            found!.Id.Should().Be("ida");
 
             // direct id lookup
-            Assert.True(reg.TryGetById("idb", out var byId));
-            Assert.Equal("idb", byId!.Id);
+            reg.TryGetById("idb", out var byId).Should().BeTrue();
+            byId!.Id.Should().Be("idb");
         }
 
         [Fact]
@@ -86,63 +89,72 @@ namespace Zentient.Core.Tests
             await reg.TryRegisterAsync(a);
             await reg.TryRegisterAsync(b);
 
-            Assert.True(reg.TryGetByPredicate(c => c.Name == "B", out var found));
-            Assert.Equal("idb", found!.Id);
+            reg.TryGetByPredicate(c => c.Name == "B", out var found).Should().BeTrue();
+            found!.Id.Should().Be("idb");
 
-            Assert.False(reg.TryGetByPredicate(c => c.Name == "C", out var none, out var reason));
-            Assert.NotNull(reason);
+            reg.TryGetByPredicate(c => c.Name == "C", out var none, out var reason).Should().BeFalse();
+            reason.Should().NotBeNullOrEmpty();
+            none.Should().BeNull();
         }
 
         [Fact]
         public async Task GetOrAddAsync_UsesFactoryAndAvoidsDoubleCreation()
         {
             var reg = Registry.NewInMemory<TestConcept>();
+
             var created = await reg.GetOrAddAsync("g1", async ct =>
             {
                 await Task.Delay(10, ct).ConfigureAwait(false);
                 return new TestConcept("g1", "G1");
             });
-            Assert.Equal("g1", created.Id);
+
+            created.Id.Should().Be("g1");
 
             // concurrent factory calls should only create once - simulate by starting many tasks
-            var tasks = Enumerable.Range(0, 10).Select(_ => reg.GetOrAddAsync("g2", async ct =>
-            {
-                await Task.Delay(10, ct).ConfigureAwait(false);
-                return new TestConcept("g2", "G2");
-            })).ToArray();
+            var tasks = Enumerable.Range(0, 10)
+                .Select(_ => reg.GetOrAddAsync("g2", async ct =>
+                {
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                    return new TestConcept("g2", "G2");
+                }).AsTask())
+                .ToArray();
 
-            var results = await Task.WhenAll(tasks.Select(vt => vt.AsTask()).ToArray());
-            Assert.All(results, r => Assert.Equal("g2", r.Id));
+            var results = await Task.WhenAll(tasks);
+            results.Should().NotBeEmpty();
+            results.All(r => r.Id == "g2").Should().BeTrue();
 
             // verify registered
-            Assert.True(reg.TryGetById("g2", out var got));
-            Assert.Equal("g2", got!.Id);
+            reg.TryGetById("g2", out var got).Should().BeTrue();
+            got!.Id.Should().Be("g2");
         }
 
         [Fact]
         public async Task TryGetByName_NotFound_ReturnsFalseWithReason()
         {
             var reg = Registry.NewInMemory<TestConcept>();
-            Assert.False(reg.TryGetByName("NoSuchName", out var item, out var reason));
-            Assert.NotNull(reason);
-            Assert.Null(item);
+            reg.TryGetByName("NoSuchName", out var item, out var reason).Should().BeFalse();
+            reason.Should().NotBeNullOrEmpty();
+            item.Should().BeNull();
         }
 
         [Fact]
         public async Task GetOrAddAsync_CancelledFactory_PropagatesCancellation()
         {
             var reg = Registry.NewInMemory<TestConcept>();
-            await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+
+            Func<Task> act = async () =>
             {
                 var cts = new CancellationTokenSource();
                 await reg.GetOrAddAsync("c1", async ct =>
                 {
-                    // cancel the passed token to simulate factory cancellation
+                    // cancel the local token source to cause the factory to observe cancellation
                     cts.Cancel();
                     await Task.Delay(50, cts.Token).ConfigureAwait(false);
                     return new TestConcept("c1", "C1");
-                });
-            });
+                }).AsTask().ConfigureAwait(false);
+            };
+
+            await act.Should().ThrowAsync<OperationCanceledException>();
         }
     }
 }
