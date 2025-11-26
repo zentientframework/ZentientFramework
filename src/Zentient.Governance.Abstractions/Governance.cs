@@ -31,7 +31,7 @@ namespace Zentient.Governance
     public interface ILifecycleState : INamed
     {
         /// <summary>
-        /// Gets the timestamp when this lifecycle entered the state, or <c>null</c> if not available.
+        /// Gets the timestamp when this lifecycle entered the state, or <see langword="null"/> if not available.
         /// This value is optional and may be used for auditing or history purposes.
         /// </summary>
         DateTimeOffset? EnteredAt { get; }

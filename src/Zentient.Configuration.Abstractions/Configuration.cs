@@ -38,7 +38,7 @@ namespace Zentient.Configuration
         string KeyPath { get; }
 
         /// <summary>
-        /// Gets the typed value of the setting. Value may be <c>null</c> when the setting is explicitly null or absent.
+        /// Gets the typed value of the setting. Value may be <see langword="null"/> when the setting is explicitly null or absent.
         /// Consumers are expected to perform appropriate casts or conversions for typed usage.
         /// </summary>
         object? Value { get; }

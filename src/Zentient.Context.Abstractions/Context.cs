@@ -24,7 +24,7 @@ namespace Zentient.Context
     public interface IContext : IDomainConcept
     {
         /// <summary>
-        /// Gets the parent context if one exists; otherwise <c>null</c>.
+        /// Gets the parent context if one exists; otherwise <see langword="null"/>.
         /// Parent contexts may be used to inherit or cascade settings and policies.
         /// </summary>
         IContext? Parent { get; }

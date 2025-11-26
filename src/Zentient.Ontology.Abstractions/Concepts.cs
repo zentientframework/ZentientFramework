@@ -1,4 +1,4 @@
-// <copyright file="Concepts.cs" author="Ulf Bourelius">
+// <copyright file="Concept.cs" author="Ulf Bourelius">
 // (c) 2025 Zentient Framework Team. Licensed under the Apache License, Version 2.0.
 // See LICENSE in the project root for license information.
 // </copyright>
