@@ -50,16 +50,24 @@ namespace Zentient.Core
             private const string Message = "No serializer implementation available. Add a formatter package (e.g., Zentient.Formatters.Json) or plug ISerializer via your host.";
 
             /// <inheritdoc/>
-            [StackTraceHidden] public string Serialize<T>(T item) => throw new NotSupportedException(Message);
+            [StackTraceHidden]
+            public string Serialize<T>(T item)
+                => throw new NotSupportedException(Message);
 
             /// <inheritdoc/>
-            [StackTraceHidden] public T? Deserialize<T>(string payload) => throw new NotSupportedException(Message);
+            [StackTraceHidden]
+            public T? Deserialize<T>(string payload)
+                => throw new NotSupportedException(Message);
 
             /// <inheritdoc/>
-            [StackTraceHidden] public Task<string> SerializeAsync<T>(T item, CancellationToken token = default) => throw new NotSupportedException(Message);
+            [StackTraceHidden]
+            public Task<string> SerializeAsync<T>(T item, CancellationToken token = default)
+                => throw new NotSupportedException(Message);
 
             /// <inheritdoc/>
-            [StackTraceHidden] public Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default) => throw new NotSupportedException(Message);
+            [StackTraceHidden]
+            public Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default)
+                => throw new NotSupportedException(Message);
         }
     }
 }

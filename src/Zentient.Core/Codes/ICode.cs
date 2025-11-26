@@ -1,35 +1,43 @@
-﻿// <copyright file="ICode.cs" author="Zentient Framework Team">
-// (c) 2025 Zentient Framework Team. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// </copyright>
-
-using Zentient.Metadata;
-
-namespace Zentient.Codes
+﻿namespace Zentient.Codes
 {
+    using System;
+    using Zentient.Metadata;
+
     /// <summary>
-    /// Lightweight non-generic code surface used for unqualified code storage on Error.
+    /// Non-generic read-only surface that represents a canonical code instance.
     /// </summary>
     public interface ICode
     {
-        /// <summary>The unique key for the code (e.g. "404", "UNAUTHENTICATED").</summary>
+        /// <summary>
+        /// Gets the stable key that identifies the code within a definition type.
+        /// Keys are compared using ordinal semantics.
+        /// </summary>
         string Key { get; }
 
-        /// <summary>Optional human-friendly name or description.</summary>
+        /// <summary>
+        /// Gets an optional human-friendly display name for the code.
+        /// </summary>
         string? DisplayName { get; }
 
-        /// <summary>Small, stable metadata attached to the code definition (NOT diagnostic metadata).</summary>
+        /// <summary>
+        /// Gets arbitrary metadata attached to the code.
+        /// </summary>
         IMetadata Metadata { get; }
-    }
 
-    /// <summary>
-    /// Covariant typed code that carries a strongly-typed <see cref="ICodeDefinition"/>.
-    /// </summary>
-    /// <typeparam name="TDefinition">Type of the code definition.</typeparam>
-    public interface ICode<out TDefinition> : ICode
-        where TDefinition : ICodeDefinition
-    {
-        /// <summary>The strongly-typed definition instance.</summary>
-        TDefinition Definition { get; }
+        /// <summary>
+        /// Gets the <see cref="Type"/> of the definition associated with this code.
+        /// </summary>
+        Type DefinitionType { get; }
+
+        /// <summary>
+        /// Gets the unique identifier for the definition, composed of the type's full name and key.
+        /// This is a lightweight computed string and may be used for logging or debugging.
+        /// </summary>
+        string Identifier => $"{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
+
+        /// <summary>
+        /// Gets the canonical identifier for the definition, formatted as a unique string.
+        /// </summary>
+        string CanonicalId => $"code:{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
     }
 }

@@ -26,7 +26,7 @@ namespace Zentient.Core
         IDisposable Begin(string activityName);
     }
 }
-namespace Zentient.Core.Results
+namespace Zentient.Results
 {
     using System;
     using System.Collections.Generic;

@@ -11,8 +11,6 @@ namespace Zentient.Results
     using System.Diagnostics;
     using System.Linq;
     using System.Threading.Tasks;
-
-    using Zentient.Codes;
     using Zentient.Errors;
     using Zentient.Metadata;
 
@@ -89,7 +87,7 @@ namespace Zentient.Results
         /// <summary>Failure factory that uses an error builder and optional metadata builder.</summary>
         public static Result<T> Fail(Action<Error.Builder> configureError, Action<Zentient.Metadata.Metadata.Builder>? configureOperationalMetadata = null)
         {
-            var eb = new Error.Builder(Code.From<ICodeDefinition>("UNKNOWN_ERROR"), "An operation failed.");
+            var eb = new Error.Builder("UNKNOWN_ERROR", "An operation failed.");
             configureError?.Invoke(eb);
             var err = eb.Build();
 
@@ -198,7 +196,7 @@ namespace Zentient.Results
             return IsSuccess ? new Result<T>(_value!, _opMetaOrSmall, norm) : new Result<T>(_error!, _opMetaOrSmall, norm);
         }
 
-        /// <summary>Map successful value to another type while preserving metadata & warnings. Failure preserves error & metadata.</summary>
+        /// <summary>Map successful value to another type while preserving metadata and warnings. Failure preserves error and metadata.</summary>
         public Result<U> Map<U>(Func<T, U> map)
         {
             if (map is null) throw new ArgumentNullException(nameof(map));
@@ -330,6 +328,7 @@ namespace Zentient.Results
         /// <summary>Add a small-path operational metadata key/value pair.</summary>
         public ResultBuilder<T> AddOperational(string key, object? value)
         {
+            EnsureMetadata();
             if (_metaBuilder is not null) { _metaBuilder.Set(key, value); return this; }
 
             if (_opSmall is null) _opSmall = Array.Empty<KeyValuePair<string, object?>>();
@@ -337,6 +336,11 @@ namespace Zentient.Results
             var list = new List<KeyValuePair<string, object?>>(_opSmall) { new KeyValuePair<string, object?>(key, value) };
             _opSmall = list.ToArray();
             return this;
+        }
+
+        private void EnsureMetadata()
+        {
+            if (_metaBuilder is null) _metaBuilder = new Zentient.Metadata.Metadata.Builder();
         }
 
         /// <summary>Add a warning to the builder.</summary>

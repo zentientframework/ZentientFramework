@@ -9,7 +9,6 @@ namespace Zentient.Metadata
     using System.Collections;
     using System.Collections.Generic;
     using System.Collections.Immutable;
-    using System.ComponentModel;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
@@ -117,6 +116,18 @@ namespace Zentient.Metadata
             /// </summary>
             /// <param name="capacity">Initial dictionary capacity.</param>
             public Builder(int capacity) => _staging = new Dictionary<string, object?>(capacity, StringComparer.Ordinal);
+
+            /// <summary>
+            /// Initializes a new instance of the Builder class using the specified metadata as the initial state.
+            /// </summary>
+            /// <param name="originalMetadata">The metadata to use for initializing the builder. Cannot be null.</param>
+            /// <exception cref="ArgumentNullException">Thrown if <paramref name="originalMetadata"/> is null.</exception>
+            public Builder(IMetadata originalMetadata)
+            {
+                if (originalMetadata is null) throw new ArgumentNullException(nameof(originalMetadata));
+                _staging = new Dictionary<string, object?>(originalMetadata.Count, StringComparer.Ordinal);
+                foreach (var kv in originalMetadata) _staging[kv.Key] = kv.Value;
+            }
 
             /// <summary>
             /// Set a metadata entry in the builder. Keys are compared using ordinal string comparison.
@@ -309,6 +320,7 @@ namespace Zentient.Metadata
             /// <param name="defaultValue">Fallback value when key is absent or conversion fails.</param>
             /// <returns>Converted value or <paramref name="defaultValue"/>.</returns>
             public T? GetOrDefault<T>(string key, T? defaultValue = default) => TryGet<T>(key, out var v) ? v : defaultValue;
+            public abstract Builder ToBuilder();
         }
 
         /// <summary>
@@ -325,6 +337,11 @@ namespace Zentient.Metadata
             public override IMetadata Set(string key, object? value) => new LinearMetadata(new[] { new KeyValuePair<string, object?>(key, value) });
             public override IMetadata Remove(string key) => this;
             public override IMetadata With(string key, object? value) => Set(key, value);
+
+            public override Builder ToBuilder()
+            {
+                return new Builder().SetRange(this);
+            }
         }
 
         /// <summary>
@@ -426,6 +443,11 @@ namespace Zentient.Metadata
 
             /// <inheritdoc/>
             public override IMetadata With(string key, object? value) => Set(key, value);
+
+            public override Builder ToBuilder()
+            {
+                return new Builder(this);
+            }
         }
 
         /// <summary>
@@ -473,6 +495,12 @@ namespace Zentient.Metadata
 
             /// <inheritdoc/>
             public override IMetadata With(string key, object? value) => Set(key, value);
+
+            /// <inheritdoc/>
+            public override Builder ToBuilder()
+            {
+                return new Builder(this);
+            }
         }
 
         /// <summary>

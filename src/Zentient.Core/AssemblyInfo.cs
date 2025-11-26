@@ -1,2 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
-[assembly: InternalsVisibleTo("Zentient.Core.Tests")]
+[assembly: InternalsVisibleTo("Zentient.Tests")]
+[assembly: InternalsVisibleTo("Zentient.Serialization.Json")]
+[assembly: InternalsVisibleTo("Zentient.Serialization.Json.Tests")]
+[assembly: InternalsVisibleTo("Zentient.Concurrency")]
+[assembly: InternalsVisibleTo("Zentient.Concurrency.Tests")]
+[assembly: InternalsVisibleTo("Zentient.Extensions")]
+[assembly: InternalsVisibleTo("Zentient.Extensions.Tests")]
+[assembly: InternalsVisibleTo("Zentient.Diagnostics")]
+[assembly: InternalsVisibleTo("Zentient.Diagnostics.Tests")]
+[assembly: InternalsVisibleTo("Zentient.Configuration")]
+[assembly: InternalsVisibleTo("Zentient.Configuration.Tests")]

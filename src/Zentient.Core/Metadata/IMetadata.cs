@@ -7,7 +7,6 @@ namespace Zentient.Metadata
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections.Immutable;
     using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
@@ -70,7 +69,7 @@ namespace Zentient.Metadata
         /// <returns><c>true</c> when the key exists and conversion to <typeparamref name="T"/> succeeded; otherwise <c>false</c>.</returns>
         /// <remarks>
         /// Implementations should provide best-effort conversions for common primitives and enums (for example by using
-        /// <see cref="Convert.ChangeType"/> or custom converters). Consumers should treat failure to convert as an
+        /// <see cref="Convert.ChangeType(object, Type)"/> or custom converters). Consumers should treat failure to convert as an
         /// expected outcome and handle the <c>false</c> return appropriately.
         /// </remarks>
         bool TryGet<T>(string key, [MaybeNullWhen(false)] out T value);
@@ -94,5 +93,13 @@ namespace Zentient.Metadata
         /// <param name="value">The value to assign to the key.</param>
         /// <returns>A new <see cref="IMetadata"/> snapshot with the provided key set to the value.</returns>
         IMetadata With(string key, object? value);
+
+        /// <summary>
+        /// Creates a new builder initialized with the current metadata values.
+        /// </summary>
+        /// <remarks>Use the returned builder to modify metadata values and construct a new metadata
+        /// instance. Changes made to the builder do not affect the original metadata object.</remarks>
+        /// <returns>A <see cref="Metadata.Builder"/> instance containing the values of this metadata object.</returns>
+        Metadata.Builder ToBuilder();
     }
 }

@@ -1,19 +1,13 @@
-﻿// <copyright file="ICodeDefinition.cs" author="Zentient Framework Team">
-// (c) 2025 Zentient Framework Team. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// </copyright>
-
-namespace Zentient.Codes
+﻿namespace Zentient.Codes
 {
-    using System;
-    using System.Collections.Concurrent;
-
     using Zentient.Definitions;
-    using Zentient.Metadata;
 
     /// <summary>
-    /// Marker interface for a code definition. Implementations represent canonical
-    /// definitions (e.g. HttpCodeDefinition, GrpcCodeDefinition).
+    /// Marker interface for types that describe a code definition payload.
     /// </summary>
+    /// <remarks>
+    /// Implement this interface for types that act as canonical definition objects used to
+    /// parameterize a <see cref="Code{TDefinition}"/> instance.
+    /// </remarks>
     public interface ICodeDefinition : IDefinition { }
 }

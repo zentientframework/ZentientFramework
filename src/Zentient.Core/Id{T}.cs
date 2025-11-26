@@ -15,7 +15,7 @@ namespace Zentient.Core
     /// Prevents "Primitive Obsession" bugs (e.g., passing UserId into OrderId).
     /// </summary>
     /// <typeparam name="T">The type of concept this ID identifies.</typeparam>
-    [TypeConverter(typeof(Zentient.Core.ComponentModel.IdTypeConverter<>))]
+    [TypeConverter(typeof(Zentient.ComponentModel.IdTypeConverter<>))]
     [DebuggerDisplay("{Value}")]
     public readonly record struct Id<T> : IComparable<Id<T>>, IParsable<Id<T>>
     {
@@ -123,7 +123,7 @@ namespace Zentient.Core
         public static implicit operator Id<T>(string value) => new(value ?? throw new ArgumentNullException(nameof(value)));
     }
 }
-namespace Zentient.Core.ComponentModel
+namespace Zentient.ComponentModel
 {
     using System;
     using System.ComponentModel;
