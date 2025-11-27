@@ -16,6 +16,7 @@ namespace Zentient.Facades
     using Zentient.Concepts;
     using Zentient.Diagnostics;
     using Zentient.Registries;
+    using Zentient.Validation;
 
     /// <summary>
     /// Provides factory methods for creating registry instances for managing concept objects in memory.

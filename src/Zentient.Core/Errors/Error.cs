@@ -8,10 +8,10 @@ namespace Zentient.Errors
     using System;
     using System.Diagnostics;
     using System.Runtime.CompilerServices;
-    using Zentient;
     using Zentient.Codes;
     using Zentient.Facades;
     using Zentient.Metadata;
+    using Zentient.Validation;
 
     /// <summary>
     /// Immutable, structured, typed error envelope used across the Zentient core.
@@ -175,7 +175,7 @@ namespace Zentient.Errors
             private Exception? _exception;
 
             // Lazy-initialized metadata builder to reduce allocation overhead on simple errors
-            private Metadata.Builder? _diagnosticBuilder;
+            private MetadataBuilder? _diagnosticBuilder;
 
             private ICode<ICodeDefinition>? _typedCode;
 
@@ -231,9 +231,9 @@ namespace Zentient.Errors
             /// The provided delegate is invoked immediately and the result is captured when <see cref="Build"/> is called.
             /// </summary>
 
-            /// <param name="configure">Action that configures a <see cref="Metadata.Builder"/>.</param>
+            /// <param name="configure">Action that configures a <see cref="MetadataBuilder"/>.</param>
             /// <returns>The builder instance.</returns>
-            public Builder WithMetadata(Action<Metadata.Builder> configure)
+            public Builder WithMetadata(Action<MetadataBuilder> configure)
             {
                 if (configure is null) return this;
 

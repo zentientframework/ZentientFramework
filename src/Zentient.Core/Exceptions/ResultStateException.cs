@@ -9,6 +9,7 @@ namespace Zentient.Exceptions
     using System;
     using System.Collections.Immutable;
     using Zentient.Errors;
+    using Zentient.Validation;
 
     /// <summary>
     /// Thrown when a Result is accessed in an invalid state.

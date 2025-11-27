@@ -14,6 +14,7 @@ namespace Zentient.Primitives
     using System.Threading.Tasks;
     using Zentient.Errors;
     using Zentient.Exceptions;
+    using Zentient.Validation;
 
     /// <summary>
     /// High-performance discriminated result type carrying either a success value of type <typeparamref name="TValue"/>
@@ -49,7 +50,9 @@ namespace Zentient.Primitives
         internal Result(ImmutableArray<Error> errors)
         {
             _value = default!;
-            _errors = Guard.AgainstNull(errors, nameof(errors));
+            _errors =
+
+                Guard.AgainstNull(errors, nameof(errors));
             _tag = Tag.Failure;
         }
 

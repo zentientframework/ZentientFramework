@@ -10,6 +10,7 @@ namespace Zentient.Facades
     using Zentient.Codes;
     using Zentient.Exceptions;
     using Zentient.Metadata;
+    using Zentient.Validation;
 
     /// <summary>
     /// Provides static methods for creating, resolving, and building code definitions and code instances.

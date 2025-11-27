@@ -7,7 +7,7 @@ namespace Zentient.Codes
 {
     using System;
     using System.Text.RegularExpressions;
-    using Zentient;
+    using Zentient.Validation;
 
     /// <summary>
     /// Static utility class responsible for configuring and enforcing validation rules for 

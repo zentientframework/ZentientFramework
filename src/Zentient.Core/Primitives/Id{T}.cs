@@ -10,6 +10,7 @@ namespace Zentient.Primitives
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Runtime.CompilerServices;
+    using Zentient.Validation;
 
     /// <summary>
     /// A strongly-typed, phantom-typed identifier.
@@ -30,7 +31,8 @@ namespace Zentient.Primitives
         /// characters.</param>
         internal Id(string value)
         {
-            Value = Guard.AgainstNullOrWhitespace(value, nameof(value));
+            Value =
+                Guard.AgainstNullOrWhitespace(value, nameof(value));
         }
 
         /// <summary>Generates a new collision-resistant ID (UUIDv4 format).</summary>

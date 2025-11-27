@@ -8,7 +8,6 @@ namespace Zentient.Metadata
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
-    using Zentient.Facades;
 
     /// <summary>
     /// Represents a read-only, immutable collection of key/value metadata entries with functional mutation helpers.
@@ -19,7 +18,7 @@ namespace Zentient.Metadata
     /// than changing the current instance. Keys are expected to be stable strings and comparisons are performed
     /// using <see cref="StringComparer.Ordinal"/> semantics by convention.
     /// Implementations SHOULD ensure that enumeration order is deterministic (for example by sorting keys) so that
-    /// serializations and diffs are predictable. Use <see cref="Metadata.Builder"/> or the
+    /// serializations and diffs are predictable. Use <see cref="MetadataBuilder"/> or the
     /// provided factory helpers to construct and compose metadata snapshots.
     /// </remarks>
     public interface IMetadata : IReadOnlyDictionary<string, object?>
@@ -99,7 +98,7 @@ namespace Zentient.Metadata
         /// </summary>
         /// <remarks>Use the returned builder to modify metadata values and construct a new metadata
         /// instance. Changes made to the builder do not affect the original metadata object.</remarks>
-        /// <returns>A <see cref="Metadata.Builder"/> instance containing the values of this metadata object.</returns>
-        Metadata.Builder ToBuilder();
+        /// <returns>A <see cref="MetadataBuilder"/> instance containing the values of this metadata object.</returns>
+        MetadataBuilder ToBuilder();
     }
 }
