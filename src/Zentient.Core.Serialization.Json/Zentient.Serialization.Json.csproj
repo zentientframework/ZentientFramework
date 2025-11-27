@@ -2,7 +2,6 @@
 	
 	<ItemGroup>
 	  <ProjectReference Include="..\Zentient.Core\Zentient.Core.csproj" />
-	  <ProjectReference Include="..\Zentient.Core\Zentient.csproj" />
 	</ItemGroup>
 	
 	<PropertyGroup>
