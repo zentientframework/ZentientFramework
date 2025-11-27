@@ -1,14 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-using Xunit;
-using FluentAssertions;
-
-using Zentient.Metadata;
+﻿// <copyright file="MetadataTests.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
 
 namespace Zentient.Metadata.Tests
 {
+    using FluentAssertions;
+    using System;
+    using System.Linq;
+    using Xunit;
+    using Zentient.Facades;
+    using Zentient.Metadata;
+
     public sealed class MetadataTests
     {
         [Fact]

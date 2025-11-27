@@ -4,6 +4,7 @@
     using System;
     using Xunit;
     using Zentient.Concepts;
+    using Zentient.Facades;
 
     // Use FluentAssertions
     public class ConceptTests

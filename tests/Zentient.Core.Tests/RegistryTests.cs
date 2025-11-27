@@ -12,7 +12,7 @@ namespace Zentient.Tests
     using System.Threading.Tasks;
     using Xunit;
     using Zentient.Concepts;
-    using Zentient.Core;
+    using Zentient.Facades;
     using Zentient.Metadata;
 
     public class RegistryTests

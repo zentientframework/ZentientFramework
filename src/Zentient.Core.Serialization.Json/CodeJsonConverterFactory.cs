@@ -8,6 +8,7 @@ namespace Zentient.Serialization.Json
     using System.Text.Json;
     using System.Text.Json.Serialization;
     using Zentient.Codes;
+    using Zentient.Facades;
     using Zentient.Metadata;
 
     /// <summary>
@@ -51,7 +52,7 @@ namespace Zentient.Serialization.Json
 
                 var key = root.GetProperty("key").GetString() ?? throw new JsonException("Missing key");
                 var display = root.TryGetProperty("displayName", out var d) ? d.GetString() : null;
-                var meta = root.TryGetProperty("metadata", out var m) ? DeserializeMetadata(m) : Zentient.Metadata.Metadata.Empty;
+                var meta = root.TryGetProperty("metadata", out var m) ? DeserializeMetadata(m) : Metadata.Empty;
                 var hint = root.TryGetProperty("definitionHint", out var th) ? th.GetString() : null;
 
                 if (hint is not null && CodeRegistry.TryResolve(hint, out var defObj) && defObj is ICodeDefinition def)

@@ -2,8 +2,7 @@
 using System.Threading.Tasks;
 
 using Xunit;
-
-using Zentient.Core;
+using Zentient.Facades;
 
 namespace Zentient.Tests
 {

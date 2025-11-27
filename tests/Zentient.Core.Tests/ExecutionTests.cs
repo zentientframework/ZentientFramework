@@ -1,14 +1,13 @@
-﻿using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
-using Xunit;
-
-using Zentient.Core;
-
-namespace Zentient.Tests
+﻿namespace Zentient.Tests
 {
+    using System;
+    using System.Linq;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    using Xunit;
+    using Zentient.Facades;
+
     public class ExecutionTests
     {
         [Fact]

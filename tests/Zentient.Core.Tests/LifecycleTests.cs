@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-using Xunit;
-
-using Zentient.Core;
-
-namespace Zentient.Tests
+﻿namespace Zentient.Tests
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+
+    using Xunit;
+    using Zentient.Abstractions;
+    using Zentient.Facades;
+
     public class LifecycleTests
     {
         [Fact]
