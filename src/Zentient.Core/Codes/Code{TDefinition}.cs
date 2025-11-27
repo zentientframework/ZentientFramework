@@ -75,6 +75,7 @@ namespace Zentient.Codes
             _hashCode = ComputeHashCode();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int ComputeHashCode()
         {
             unchecked
@@ -164,10 +165,12 @@ namespace Zentient.Codes
             return added;
         }
 
-        public CodeBuilder<TDefinition> ToBuilder()
-        {
-            return Code.NewBuilder<TDefinition>(this);
-        }
+        /// <summary>
+        /// Creates a new <see cref="CodeBuilder{TDefinition}"/> instance initialized with the current definition.
+        /// </summary>
+        /// <returns>A <see cref="CodeBuilder{TDefinition}"/> that can be used to further configure or modify the current
+        /// definition.</returns>
+        public CodeBuilder<TDefinition> ToBuilder() => Code.NewBuilder<TDefinition>(this);
 
         /// <summary>
         /// A lightweight, performance-optimized factory method for creating or retrieving a canonical instance, 

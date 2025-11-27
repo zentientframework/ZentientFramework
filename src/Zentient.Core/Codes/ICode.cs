@@ -6,6 +6,7 @@
 namespace Zentient.Codes
 {
     using System;
+    using System.Runtime.CompilerServices;
     using Zentient.Metadata;
 
     /// <summary>
@@ -30,12 +31,26 @@ namespace Zentient.Codes
         /// A developer-friendly string identifier combining the definition type name and the key.
         /// Format: <c>{DefinitionType.Name}:{Key}</c>.
         /// </summary>
-        string Identifier => $"{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
+        string Identifier
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return $"{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
+            }
+        }
 
         /// <summary>
         /// A fully qualified, canonical identifier for the code instance, suitable for global identification.
         /// Format: <c>code:{DefinitionType.FullName}:{Key}</c>.
         /// </summary>
-        string CanonicalId => $"code:{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
+        string CanonicalId
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return $"code:{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
+            }
+        }
     }
 }

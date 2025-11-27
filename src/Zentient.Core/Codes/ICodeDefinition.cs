@@ -6,6 +6,7 @@
 namespace Zentient.Codes
 {
     using Zentient.Definitions;
+    using Zentient.Errors;
 
     /// <summary>
     /// Marker interface for types that describe a code definition payload.
@@ -14,5 +15,11 @@ namespace Zentient.Codes
     /// Implement this interface for types that act as canonical definition objects used to
     /// parameterize a <see cref="Code{TDefinition}"/> instance.
     /// </remarks>
-    public interface ICodeDefinition : IDefinition { }
+    public interface ICodeDefinition : IDefinition
+    {
+        /// <summary>
+        /// Gets the severity level associated with the current instance.
+        /// </summary>
+        Severity Severity { get; }
+    }
 }

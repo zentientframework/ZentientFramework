@@ -49,7 +49,7 @@ namespace Zentient.Codes
         public static string ValidateKey(string? key)
         {
             // Ensure non-null quickly using Guard to provide consistent DX and messages.
-            key = Guard.AgainstNull(key, nameof(key));
+            key = Guard.AgainstNullOrWhitespace(key, nameof(key));
 
             // If whitespace in key is disallowed, enforce non-empty and non-whitespace.
             if (!s_options.AllowWhitespaceInKey)

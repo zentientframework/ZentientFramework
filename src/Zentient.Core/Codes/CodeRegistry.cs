@@ -133,7 +133,6 @@ namespace Zentient.Codes
         /// <param name="resolver">A factory function that returns the definition instance.</param>
         /// <exception cref="ArgumentException">Thrown if the hint is null or empty.</exception>
         /// <exception cref="ArgumentNullException">Thrown if the resolver is null.</exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Register<TDefinition>(string hint, Func<TDefinition> resolver)
             where TDefinition : ICodeDefinition
         {
@@ -148,7 +147,6 @@ namespace Zentient.Codes
         /// </summary>
         /// <param name="resolver">The resolver function.</param>
         /// <exception cref="ArgumentNullException">Thrown if the resolver is null.</exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void RegisterAutoResolver(Func<string, ICodeDefinition?> resolver)
         {
             if (resolver is null) throw new ArgumentNullException(nameof(resolver));
