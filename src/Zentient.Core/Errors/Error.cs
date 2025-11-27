@@ -6,6 +6,7 @@
 namespace Zentient.Errors
 {
     using System;
+    using System.Runtime.CompilerServices;
     using Zentient.Codes;
     using Zentient.Metadata;
 
@@ -14,7 +15,7 @@ namespace Zentient.Errors
     /// This type is intentionally serializer-agnostic: adapters and transport layers decide on
     /// how errors are encoded for persistence or transport.
     /// </summary>
-    public sealed class Error
+    public sealed record Error
     {
         /// <summary>
         /// Gets the canonical key that identifies the error code.
@@ -62,28 +63,18 @@ namespace Zentient.Errors
         /// <param name="severity">Severity classification.</param>
         /// <param name="diagnosticMetadata">Diagnostic metadata; if null an empty metadata object will be used.</param>
         /// <param name="exception">Optional associated exception for diagnostics.</param>
-        /// <param name="typedCode">Optional typed code instance; when provided the builder aligns <paramref name="codeKey"/> to the typed code's key.</param>
+        /// <param name="code">Optional typed code instance; when provided the builder aligns <paramref name="codeKey"/> to the typed code's key.</param>
         /// <exception cref="ArgumentException">Thrown when <paramref name="codeKey"/> or <paramref name="message"/> is null/empty/whitespace.</exception>
-        internal Error(
-            string codeKey,
-            string message,
-            Severity severity,
-            IMetadata diagnosticMetadata,
-            Exception? exception,
-            ICode<ICodeDefinition>? typedCode)
+        internal Error(string codeKey, string message, Severity severity, IMetadata diagnosticMetadata, Exception? exception, ICode<ICodeDefinition>? code)
         {
-            if (string.IsNullOrWhiteSpace(codeKey))
-                throw new ArgumentException("Error must have a non-empty CodeKey.", nameof(codeKey));
-
-            if (string.IsNullOrWhiteSpace(message))
-                throw new ArgumentException("Error message must be non-empty.", nameof(message));
-
+            if (string.IsNullOrWhiteSpace(codeKey)) throw new ArgumentException("CodeKey must be non-empty.", nameof(codeKey));
+            if (string.IsNullOrWhiteSpace(message)) throw new ArgumentException("Message must be non-empty.", nameof(message));
             CodeKey = codeKey;
             Message = message;
             Severity = severity;
             DiagnosticMetadata = diagnosticMetadata ?? Zentient.Metadata.Metadata.Empty;
             Exception = exception;
-            Code = typedCode;
+            Code = code;
         }
 
         // ------------------------------------------------------
@@ -96,12 +87,14 @@ namespace Zentient.Errors
         /// </summary>
         /// <param name="codeKey">The canonical code key to seed the builder.</param>
         /// <param name="message">The human-facing message to seed the builder.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Builder NewBuilder(string codeKey, string message) => new(codeKey, message);
 
         /// <summary>
         /// Creates a common validation error with the canonical key <c>VALIDATION</c>.
         /// </summary>
         /// <param name="message">Validation failure message.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Error Validation(string message) =>
             NewBuilder("VALIDATION", message).WithSeverity(Severity.Recoverable).Build();
 
@@ -109,6 +102,7 @@ namespace Zentient.Errors
         /// Creates a common not-found error with the canonical key <c>NOT_FOUND</c>.
         /// </summary>
         /// <param name="key">Identifier of the missing entity used to compose the message.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Error NotFound(string key) =>
             NewBuilder("NOT_FOUND", $"The requested item '{key}' was not found.")
             .WithSeverity(Severity.Recoverable)
@@ -118,6 +112,8 @@ namespace Zentient.Errors
         /// Creates a conflict error with the canonical key <c>CONFLICT</c>.
         /// </summary>
         /// <param name="message">Conflict description.</param>
+        /// <returns>An <see cref="Error"/> instance representing the conflict.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Error Conflict(string message) =>
             NewBuilder("CONFLICT", message)
             .WithSeverity(Severity.Recoverable)
@@ -127,6 +123,8 @@ namespace Zentient.Errors
         /// Creates an unexpected error that wraps an exception using the canonical key <c>UNEXPECTED</c>.
         /// </summary>
         /// <param name="ex">The exception that triggered the unexpected error.</param>
+        /// <returns>An <see cref="Error"/> instance representing the unexpected error.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Error Unexpected(Exception ex) =>
             NewBuilder("UNEXPECTED", ex?.Message ?? "Unexpected error")
             .WithException(ex)
@@ -136,10 +134,16 @@ namespace Zentient.Errors
         /// <summary>
         /// Gets a canonical cancellation error (<c>CANCELED</c>).
         /// </summary>
-        public static Error Canceled =>
-            NewBuilder("CANCELED", "The operation was canceled.")
-            .WithSeverity(Severity.Recoverable)
-            .Build();
+        public static Error Canceled
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return NewBuilder("CANCELED", "The operation was canceled.")
+                    .WithSeverity(Severity.Recoverable)
+                    .Build();
+            }
+        }
 
         /// <summary>
         /// Returns a brief string representation of the error for logging.
