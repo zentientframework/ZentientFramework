@@ -1,20 +1,18 @@
-// <copyright file="Result.cs" author="Zentient Framework Team">
+// <copyright file="Result{T}.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis; // For NotNullWhen
-using System.Linq;
-using System.Threading.Tasks;
-using Zentient.Errors;
-using Zentient.Metadata;
-
 namespace Zentient.Results
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Collections.Immutable;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Threading.Tasks;
+    using Zentient.Errors;
+
     /// <summary>
     /// High-performance discriminated result type carrying either a success value of type <typeparamref name="T"/>
     /// or an <see cref="Error"/>. This struct is immutable, ensures minimal allocations on the success path,
@@ -24,83 +22,62 @@ namespace Zentient.Results
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public readonly struct Result<T>
     {
-        private readonly T? _value;
-        private readonly Error? _error;
-        private readonly IMetadata _operationalMetadata;
-        private readonly ImmutableArray<Error> _warnings;
+        private readonly Tag _tag;
+        private readonly T _value;
+        private readonly ImmutableArray<Error> _errors;
 
-        // ----------------------
-        // Constructors
-        // ----------------------
+        private enum Tag : byte { None = 0, Success = 1, Failure = 2 }
 
-        /// <summary>Internal constructor for success results.</summary>
-        internal Result(T value, IMetadata? operationalMetadata, ImmutableArray<Error> warnings)
+        internal Result(T value)
         {
-            _error = null;
             _value = value;
-            _operationalMetadata = operationalMetadata ?? Metadata.Metadata.Empty;
-            _warnings = NormalizeWarnings(warnings);
+            _errors = default;
+            _tag = Tag.Success;
         }
 
-        /// <summary>Internal constructor for failure results.</summary>
-        internal Result(Error error, IMetadata? operationalMetadata, ImmutableArray<Error> warnings)
+        internal Result(ImmutableArray<Error> errors)
         {
-            if (error is null) throw new ArgumentNullException(nameof(error));
-            _error = error;
-            _value = default;
-            _operationalMetadata = operationalMetadata ?? Metadata.Metadata.Empty;
-            _warnings = NormalizeWarnings(warnings);
+            ArgumentNullException.ThrowIfNull($"{nameof(errors)} cannot be null.");
+            _value = default!;
+            _errors = errors;
+            _tag = Tag.Failure;
         }
 
         // ----------------------
         // Fast-path factories
         // ----------------------
 
-        /// <summary>Creates a successful result with the given value, no metadata, and no warnings.</summary>
-        public static Result<T> Ok(T value) => new(value, Metadata.Metadata.Empty, ImmutableArray<Error>.Empty);
-
-        /// <summary>Creates a successful result with the given value and existing operational metadata.</summary>
-        public static Result<T> Ok(T value, IMetadata operationalMetadata) =>
-            new(value, operationalMetadata, ImmutableArray<Error>.Empty);
+        /// <summary>
+        /// Creates a successful result containing the specified value.
+        /// </summary>
+        /// <param name="value">The value to be encapsulated in the successful result.</param>
+        /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value.</returns>
+        public static Result<T> Succeed(T value) => new(value);
 
         /// <summary>
-        /// Creates a successful result, configuring operational metadata via a builder action.
+        /// Creates a failed result containing the specified collection of errors.
         /// </summary>
-        public static Result<T> Ok(T value, Action<Metadata.Metadata.Builder> configureOperationalMetadata)
+        /// <param name="errors">An immutable array of <see cref="Error"/> instances representing the errors associated with the failed
+        /// result. Must contain at least one element.</param>
+        /// <returns>A <see cref="Result{T}"/> representing a failed operation with the provided errors.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is default or empty.</exception>
+        public static Result<T> Fail(ImmutableArray<Error> errors)
         {
-            if (configureOperationalMetadata is null) return Ok(value);
-
-            var mb = Metadata.Metadata.NewBuilder();
-            configureOperationalMetadata(mb);
-
-            return new Result<T>(value, mb.Build(), ImmutableArray<Error>.Empty);
+            if (errors.IsDefaultOrEmpty) throw new ArgumentException("errors must contain at least one Error", nameof(errors));
+            return new Result<T>(errors);
         }
 
-        /// <summary>Creates a failed result with the given error, no metadata, and no warnings.</summary>
-        public static Result<T> Fail(Error error) => new(error, Metadata.Metadata.Empty, ImmutableArray<Error>.Empty);
-
-        /// <summary>Creates a failed result with the given error and existing operational metadata.</summary>
-        public static Result<T> Fail(Error error, IMetadata operationalMetadata) =>
-            new(error, operationalMetadata, ImmutableArray<Error>.Empty);
-
         /// <summary>
-        /// Creates a failed result by fluently configuring an error and optionally operational metadata.
+        /// Creates a failed result containing the specified errors.
         /// </summary>
-        public static Result<T> Fail(Action<Error.Builder> configureError, Action<Metadata.Metadata.Builder>? configureOperationalMetadata = null)
+        /// <param name="errors">An array of <see cref="Error"/> objects that describe the reasons for failure. Must contain at least one
+        /// element.</param>
+        /// <returns>A <see cref="Result{T}"/> instance representing a failed operation with the provided errors.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is <see langword="null"/> or does not contain at least one element.</exception>
+        public static Result<T> Fail(params Error[] errors)
         {
-            var eb = Error.NewBuilder("UNKNOWN_OPERATION_FAILURE", "An operation failed to produce a structured error.");
-            configureError?.Invoke(eb);
-            var err = eb.Build();
-
-            IMetadata? meta = null;
-            if (configureOperationalMetadata is not null)
-            {
-                var mb = Metadata.Metadata.NewBuilder();
-                configureOperationalMetadata(mb);
-                meta = mb.Build();
-            }
-
-            return new Result<T>(error: err, operationalMetadata: meta, warnings: ImmutableArray<Error>.Empty);
+            if (errors is null || errors.Length == 0) throw new ArgumentException("errors must contain at least one Error", nameof(errors));
+            return new Result<T>(ImmutableArray.CreateRange(errors));
         }
 
         // ----------------------
@@ -109,471 +86,255 @@ namespace Zentient.Results
 
         /// <summary>True when the result represents success.</summary>
         [MemberNotNullWhen(true, nameof(Value))]
-        [MemberNotNullWhen(false, nameof(Error))]
-        public bool IsSuccess => _error is null;
+        [MemberNotNullWhen(false, nameof(Errors))]
+        public bool IsSuccess => _tag == Tag.Success;
 
         /// <summary>True when the result represents failure.</summary>
-        [MemberNotNullWhen(true, nameof(Error))]
+        [MemberNotNullWhen(true, nameof(Errors))]
         [MemberNotNullWhen(false, nameof(Value))]
-        public bool IsFailure => _error is not null;
+        public bool IsFailure => _tag == Tag.Failure;
 
         /// <summary>Returns the success value or throws <see cref="InvalidOperationException"/> when result is failure.</summary>
-        public T Value
-        {
-            get
-            {
-                if (IsFailure) throw new InvalidOperationException($"Result failed: {_error?.Message}");
-                // Suppress warning: IsSuccess check ensures _value is not null when T is notnull
-                return _value!;
-            }
-        }
+        public T Value => IsSuccess ? _value : throw new InvalidOperationException("Result is not Success.");
 
         /// <summary>Returns the error for failure results or throws <see cref="InvalidOperationException"/> when result is success.</summary>
-        public Error Error => IsFailure ? _error! : throw new InvalidOperationException("Result succeeded.");
+        public ImmutableArray<Error> Errors => IsFailure ? _errors : ImmutableArray<Error>.Empty;
+
+        // -----------------------
+        // Basic combinators — allocation-conscious
+        // -----------------------
 
         /// <summary>
-        /// Immutable snapshot of operational metadata associated with this result instance. 
-        /// Guaranteed to be non-null (returns <see cref="Metadata"/>.Empty if none is present).
+        /// Transforms the successful result value using the specified mapping function, returning a new result of the mapped
+        /// type.
         /// </summary>
-        public IMetadata OperationalMetadata => _operationalMetadata;
-
-        /// <summary>
-        /// A normalized, immutable array of non-fatal errors or warnings produced during the operation.
-        /// Guaranteed to be non-default (<see cref="ImmutableArray{T}.IsDefault"/> is false).
-        /// </summary>
-        public ImmutableArray<Error> Warnings => _warnings.IsDefault ? ImmutableArray<Error>.Empty : _warnings;
-
-        // ----------------------
-        // Mutators & Monads
-        // ----------------------
-
-        /// <summary>Returns a copy of this result with new operational metadata, performing a no-op if the metadata is identical.</summary>
-        public Result<T> WithOperationalMetadata(IMetadata metadata)
+        /// <remarks>If the original result is a failure, the mapping function is not invoked and the errors are
+        /// propagated to the returned result.</remarks>
+        /// <typeparam name="U">The type of the value returned by the mapping function.</typeparam>
+        /// <param name="mapper">A function that takes the successful result value and returns a value of type <typeparamref name="U"/>. Cannot be
+        /// null.</param>
+        /// <returns>A <see cref="Result{U}"/> containing the mapped value if the original result was successful; otherwise, a failed
+        /// result containing the same errors.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="mapper"/> is null.</exception>
+        public Result<U> Map<U>(Func<T, U> mapper)
         {
-            var newMeta = metadata ?? Metadata.Metadata.Empty;
-            if (ReferenceEquals(_operationalMetadata, newMeta)) return this;
-
-            return IsSuccess
-                ? new Result<T>(_value!, newMeta, Warnings)
-                : new Result<T>(_error!, newMeta, Warnings);
-        }
-
-        /// <summary>Configures operational metadata using a builder and returns a new <see cref="Result{T}"/> instance.</summary>
-        public Result<T> WithOperationalMetadata(Action<Metadata.Metadata.Builder> configure)
-        {
-            if (configure is null) return this;
-
-            var mb = Metadata.Metadata.NewBuilder();
-            // Start from existing metadata to allow mutation/merging
-            mb.SetRange(OperationalMetadata);
-
-            configure(mb);
-            var built = mb.Build();
-
-            return WithOperationalMetadata(built);
-        }
-
-        /// <summary>Returns a copy with the given warnings merged and normalized. Avoids allocation when identical.</summary>
-        public Result<T> WithWarnings(IEnumerable<Error> warnings)
-        {
-            if (warnings is null) return this;
-
-            var add = ImmutableArray.CreateRange(warnings);
-            if (add.IsEmpty && _warnings.IsEmpty) return this;
-
-            var merged = _warnings.IsEmpty ? add : _warnings.AddRange(add);
-            var norm = NormalizeWarnings(merged);
-
-            // Check if the resulting array is identical to avoid creating a new Result struct
-            if (norm.SequenceEqual(_warnings)) return this;
-
-            return IsSuccess
-                ? new Result<T>(_value!, OperationalMetadata, norm)
-                : new Result<T>(_error!, OperationalMetadata, norm);
+            if (mapper is null) throw new ArgumentNullException($"{nameof(mapper)} is null");
+            return IsSuccess ? Result<U>.Succeed(mapper(_value)) : Result<U>.Fail(_errors);
         }
 
         /// <summary>
-        /// Monadic map operation: transforms the successful value into another type while preserving metadata and warnings. 
-        /// Failure preserves the original error, warnings, and metadata.
+        /// Invokes the specified binder function if the current result is successful, returning its result; otherwise,
+        /// propagates the failure.
         /// </summary>
-        public Result<U> Map<U>(Func<T, U> map)
-        {
-            if (map is null) throw new ArgumentNullException(nameof(map));
-
-            if (IsFailure)
-            {
-                // Preserve error, metadata, and warnings
-                return new Result<U>(_error!, OperationalMetadata, Warnings);
-            }
-
-            var mapped = map(_value!);
-            // Preserve metadata and warnings
-            return new Result<U>(mapped, OperationalMetadata, Warnings);
-        }
-
-        /// <summary>
-        /// Monadic bind operation: chains to a result-returning function.
-        /// If successful, the operation proceeds. Operational metadata and warnings are merged from both results.
-        /// </summary>
+        /// <remarks>This method enables chaining of operations that may fail, following the monadic bind
+        /// pattern. If the current result is not successful, the binder function is not invoked and the failure is
+        /// propagated.</remarks>
+        /// <typeparam name="U">The type of the value returned by the binder function and contained in the resulting result.</typeparam>
+        /// <param name="binder">A function to apply to the successful value, which returns a new result of type <typeparamref name="U"/>.
+        /// Cannot be null.</param>
+        /// <returns>A result containing the value produced by the binder function if the current result is successful;
+        /// otherwise, a failed result containing the original errors.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="binder"/> is null.</exception>
         public Result<U> Bind<U>(Func<T, Result<U>> binder)
         {
-            if (binder is null) throw new ArgumentNullException(nameof(binder));
-
-            if (IsFailure)
-            {
-                // If failure, propagate the original error, metadata, and warnings.
-                return new Result<U>(_error!, OperationalMetadata, Warnings);
-            }
-
-            var nextResult = binder(_value!);
-
-            // 1. Merge Warnings: Original warnings + new result's warnings.
-            var mergedWarnings = Warnings.AddRange(nextResult.Warnings);
-
-            // 2. Merge Metadata: Deep merge original metadata into the new result's metadata.
-            // This favors the metadata produced by the later/inner operation (nextResult).
-            var mergedMetaBuilder = Metadata.Metadata.NewBuilder();
-            mergedMetaBuilder.SetRange(nextResult.OperationalMetadata);
-            // Deep merge original data, allowing the inner metadata to win on conflicts.
-            mergedMetaBuilder.DeepMerge(OperationalMetadata);
-
-            var finalMeta = mergedMetaBuilder.Build();
-
-            // Create final result, preserving the success/failure state of the nextResult.
-            return nextResult.IsSuccess
-                ? new Result<U>(nextResult._value!, finalMeta, mergedWarnings)
-                : new Result<U>(nextResult._error!, finalMeta, mergedWarnings);
+            if (binder is null) throw new ArgumentNullException($"{nameof(binder)} is null");
+            return IsSuccess ? binder(_value) : Result<U>.Fail(_errors);
         }
 
-        /// <summary>Async bind optimized to avoid state machine allocation on the synchronous success path.</summary>
+        /// <summary>
+        /// Invokes the specified asynchronous binder function if the current result is successful, returning its
+        /// result; otherwise, propagates the failure.
+        /// </summary>
+        /// <remarks>This method enables chaining asynchronous operations that return results, propagating
+        /// errors without invoking the binder if the current result is a failure.</remarks>
+        /// <typeparam name="U">The type of the value returned by the binder function and the resulting result.</typeparam>
+        /// <param name="binder">A function to apply to the successful value, which returns a task that produces a new result. Cannot be
+        /// null.</param>
+        /// <returns>A task that represents the asynchronous bind operation. If the current result is successful, the returned
+        /// task yields the result of the binder function; otherwise, it yields a failed result containing the original
+        /// errors.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="binder"/> is null.</exception>
         public ValueTask<Result<U>> BindAsync<U>(Func<T, ValueTask<Result<U>>> binder)
         {
             if (binder is null) throw new ArgumentNullException(nameof(binder));
+            return IsSuccess ? binder(_value) : new ValueTask<Result<U>>(Result<U>.Fail(_errors));
+        }
 
+        /// <summary>
+        /// Invokes the specified delegate based on whether the result represents a success or a failure, and returns the
+        /// corresponding value.
+        /// </summary>
+        /// <remarks>This method provides a functional way to handle both success and failure cases by requiring explicit
+        /// handling for each outcome.</remarks>
+        /// <typeparam name="R">The type of the value returned by the delegates.</typeparam>
+        /// <param name="onSuccess">A delegate to invoke if the result is successful. Receives the success value as its argument.</param>
+        /// <param name="onFailure">A delegate to invoke if the result is a failure. Receives an immutable array of errors as its argument.</param>
+        /// <returns>The value returned by either <paramref name="onSuccess"/> or <paramref name="onFailure"/>, depending on the result
+        /// state.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="onSuccess"/> or <paramref name="onFailure"/> is <see langword="null"/>.</exception>
+        public R Match<R>(Func<T, R> onSuccess, Func<ImmutableArray<Error>, R> onFailure)
+        {
+            if (onSuccess is null) throw new ArgumentNullException(nameof(onSuccess));
+            if (onFailure is null) throw new ArgumentNullException(nameof(onFailure));
+            return IsSuccess ? onSuccess(_value) : onFailure(_errors);
+        }
+
+        /// <summary>
+        /// Returns the contained value if the operation was successful; otherwise, returns the specified default value.
+        /// </summary>
+        /// <param name="defaultValue">The value to return if the operation was not successful.</param>
+        /// <returns>The contained value if successful; otherwise, the specified default value.</returns>
+        public T ValueOrDefault(T defaultValue) => IsSuccess ? _value : defaultValue;
+
+        /// <summary>
+        /// Attempts to retrieve the stored value if the operation was successful.
+        /// </summary>
+        /// <param name="value">When this method returns, contains the value associated with a successful result if available; otherwise,
+        /// the default value for type <typeparamref name="T"/>.</param>
+        /// <returns>true if the value was successfully retrieved; otherwise, false.</returns>
+        public bool TryGetValue(out T value)
+        {
+            if (IsSuccess) { value = _value; return true; }
+            value = default!;
+            return false;
+        }
+
+        /// <summary>
+        /// Ensures that the current result satisfies the specified condition, returning a failure result with the provided
+        /// error if the condition is not met.
+        /// </summary>
+        /// <remarks>If the current result is already a failure, the condition is not evaluated and the original result is
+        /// returned.</remarks>
+        /// <param name="predicate">A function that defines the condition to evaluate against the result's value. The function should return <see
+        /// langword="true"/> if the value meets the condition; otherwise, <see langword="false"/>.</param>
+        /// <param name="errorIfFalse">The error to associate with the result if the condition specified by <paramref name="predicate"/> is not satisfied.</param>
+        /// <returns>A <see cref="Result{T}"/> that is unchanged if the current result is a failure or if the condition is satisfied;
+        /// otherwise, a failure result containing <paramref name="errorIfFalse"/>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="predicate"/> or <paramref name="errorIfFalse"/> is <see langword="null"/>.</exception>
+        public Result<T> Ensure(Func<T, bool> predicate, Error errorIfFalse)
+        {
+            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
+            if (errorIfFalse is null) throw new ArgumentNullException(nameof(errorIfFalse));
+            if (IsFailure) return this;
+            return predicate(_value) ? this : Fail(ImmutableArray.Create(errorIfFalse));
+        }
+
+        /// <summary>
+        /// Combines two <see cref="Result{T}"/> instances into a single result, propagating success or aggregating
+        /// errors as appropriate.
+        /// </summary>
+        /// <remarks>If both results are failures, the returned result aggregates the errors from both
+        /// <paramref name="first"/> and <paramref name="second"/>. This method is useful for scenarios where multiple
+        /// operations may fail and you want to collect all error information.</remarks>
+        /// <param name="first">The first result to combine. If <paramref name="first"/> is successful, the method returns <paramref
+        /// name="second"/>.</param>
+        /// <param name="second">The second result to combine. If <paramref name="second"/> is successful, the method returns <paramref
+        /// name="first"/>.</param>
+        /// <returns>A <see cref="Result{T}"/> that is successful if either input is successful; otherwise, a failed result
+        /// containing the combined errors from both inputs.</returns>
+        public static Result<T> Combine(Result<T> first, Result<T> second)
+        {
+            if (first.IsSuccess) return second;
+            if (second.IsSuccess) return first;
+
+            // Use ImmutableArray.Builder for efficient assembly
+            var builder = ImmutableArray.CreateBuilder<Error>(first._errors.Length + second._errors.Length);
+            builder.AddRange(first._errors);
+            builder.AddRange(second._errors);
+            return Fail(builder.ToImmutable());
+        }
+
+        /// <summary>
+        /// Applies the specified mapping function to each item in the collection and returns a result containing a list of
+        /// successful mapped values, or a failure result containing any errors encountered.
+        /// </summary>
+        /// <remarks>If any mapping fails, the returned result will contain all errors if <paramref
+        /// name="aggregateAllErrors"/> is <see langword="true"/>; otherwise, only the errors from the first failure are
+        /// included. The order of mapped values in the result matches the order of the input items.</remarks>
+        /// <typeparam name="TInput">The type of elements in the input collection to be mapped.</typeparam>
+        /// <param name="items">The collection of input items to be mapped. Cannot be null.</param>
+        /// <param name="mapper">A function that maps each input item to a result. Cannot be null.</param>
+        /// <param name="aggregateAllErrors">If <see langword="true"/>, collects all errors from failed mappings; if <see langword="false"/>, returns on the
+        /// first error encountered. The default is <see langword="true"/>.</param>
+        /// <returns>A result containing a read-only list of successfully mapped values if all mappings succeed; otherwise, a failure
+        /// result containing the errors encountered.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> or <paramref name="mapper"/> is null.</exception>
+        public static Result<IReadOnlyList<T>> Traverse<TInput>(IEnumerable<TInput> items, Func<TInput, Result<T>> mapper, bool aggregateAllErrors = true)
+        {
+            if (items is null) throw new ArgumentNullException(nameof(items));
+            if (mapper is null) throw new ArgumentNullException(nameof(mapper));
+
+            var valuesBuilder = ImmutableArray.CreateBuilder<T>();
+            var errorsBuilder = ImmutableArray.CreateBuilder<Error>();
+
+            foreach (var it in items)
+            {
+                var r = mapper(it);
+                if (r.IsSuccess)
+                {
+                    valuesBuilder.Add(r.Value);
+                }
+                else
+                {
+                    errorsBuilder.AddRange(r.Errors);
+                    if (!aggregateAllErrors)
+                    {
+                        // short-circuit on first error
+                        return Result<IReadOnlyList<T>>.Fail(errorsBuilder.ToImmutable());
+                    }
+                }
+            }
+
+            if (errorsBuilder.Count > 0) return Result<IReadOnlyList<T>>.Fail(errorsBuilder.ToImmutable());
+            return Result<IReadOnlyList<T>>.Succeed((IReadOnlyList<T>)valuesBuilder.ToImmutable());
+        }
+
+        /// <summary>
+        /// Aggregates a sequence of result values into a single result containing a list of successful values, or an
+        /// error if any result in the sequence is a failure.
+        /// </summary>
+        /// <remarks>If any result in the sequence is a failure, the returned result will contain error
+        /// information. When <paramref name="aggregateAllErrors"/> is <see langword="true"/>, all errors from failed
+        /// results are included; when <see langword="false"/>, only the first error is reported. The order of values in
+        /// the returned list matches the order of the input sequence.</remarks>
+        /// <param name="results">The collection of result values to aggregate. Each item represents an individual operation that may succeed
+        /// or fail.</param>
+        /// <param name="aggregateAllErrors">Indicates whether to aggregate all errors from failed results into a single error result. If <see
+        /// langword="true"/>, all errors are combined; otherwise, only the first error is returned.</param>
+        /// <returns>A result containing a read-only list of all successful values if every result in the sequence is successful;
+        /// otherwise, a result containing the aggregated error(s).</returns>
+        public static Result<IReadOnlyList<T>> Sequence(IEnumerable<Result<T>> results, bool aggregateAllErrors = true)
+            => Traverse(results, r => r, aggregateAllErrors);
+
+        /// <summary>Try find first error with matching code; O(n) worst-case, optional lazy index can be added in future.</summary>
+        public bool TryGetError(string code, out Error error)
+        {
+            if (code is null) throw new ArgumentNullException(nameof(code));
             if (IsFailure)
             {
-                // Propagate failure synchronously
-                return new ValueTask<Result<U>>(new Result<U>(_error!, OperationalMetadata, Warnings));
-            }
-
-            // Invoke the async binder
-            var task = binder(_value!);
-
-            // Capture instance members to avoid capturing 'this' inside the local function / continuation.
-            var outerWarnings = Warnings;
-            var outerOperationalMetadata = OperationalMetadata;
-
-            // If the task completed synchronously, run the continuation synchronously to avoid allocation.
-            if (task.IsCompletedSuccessfully)
-            {
-                var nextResult = task.Result;
-                var finalResult = BindContinuation(nextResult, outerWarnings, outerOperationalMetadata);
-                return new ValueTask<Result<U>>(finalResult);
-            }
-
-            // Otherwise, allocate the state machine but pass captured data into the continuation to avoid 'this' capture.
-            return new ValueTask<Result<U>>(
-                task.AsTask().ContinueWith(
-                    t => BindContinuation(t.Result, outerWarnings, outerOperationalMetadata),
-                    TaskContinuationOptions.ExecuteSynchronously
-                )
-            );
-
-            static Result<U> BindContinuation(Result<U> nextResult, ImmutableArray<Error> outerWarnings, IMetadata outerOperationalMetadata)
-            {
-                // Merge warnings: outerWarnings + nextResult.Warnings
-                var mergedWarnings = outerWarnings.AddRange(nextResult.Warnings);
-
-                // Merge metadata: start from nextResult's metadata, deep-merge the outer metadata (outer wins resolved inside DeepMerge semantics)
-                var mergedMetaBuilder = Metadata.Metadata.NewBuilder();
-                mergedMetaBuilder.SetRange(nextResult.OperationalMetadata);
-                mergedMetaBuilder.DeepMerge(outerOperationalMetadata);
-
-                var finalMeta = mergedMetaBuilder.Build();
-
-                return nextResult.IsSuccess
-                    ? new Result<U>(nextResult._value!, finalMeta, mergedWarnings)
-                    : new Result<U>(nextResult._error!, finalMeta, mergedWarnings);
-            }
-        }
-
-        /// <summary>Match expression for success/failure branches, allowing consumption of the result.</summary>
-        public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<Error, TResult> onFailure)
-        {
-            if (onSuccess is null) throw new ArgumentNullException("OnSuccess must not be null.", nameof(onSuccess));
-            if (onFailure is null) throw new ArgumentNullException("OnFailure must not be null.", nameof(onFailure));
-
-            return IsSuccess ? onSuccess(_value!) : onFailure(_error!);
-        }
-
-        // ----------------------
-        // Convenience & utilities
-        // ----------------------
-
-        /// <summary>Return true when result is success and all warnings are non-fatal (i.e., Info or Warning severity).</summary>
-        public bool HasOnlyNonFatalWarnings()
-        {
-            if (IsFailure) return false;
-            if (Warnings.IsEmpty) return false; // Technically has NO warnings, but usually means there are no FATAL ones.
-
-            foreach (var w in Warnings)
-            {
-                // Checks for Recoverable (2) or Fatal (3)
-                if (w.Severity > Severity.Warning) return false;
-            }
-            return true;
-        }
-
-        /// <summary>Deconstruct the result into a simple tuple form.</summary>
-        public void Deconstruct(
-            out bool isSuccess,
-            out T? value,
-            out Error? error,
-            out ImmutableArray<Error> warnings,
-            out IMetadata operationalMetadata)
-        {
-            isSuccess = IsSuccess;
-            value = _value;
-            error = _error;
-            warnings = Warnings;
-            operationalMetadata = OperationalMetadata;
-        }
-
-        /// <summary>Implicit conversion from value to successful <see cref="Result{T}"/>.</summary>
-        public static implicit operator Result<T>(T value) => Ok(value);
-
-        /// <summary>Implicit conversion from <see cref="Error"/> to failed <see cref="Result{T}"/>.</summary>
-        public static implicit operator Result<T>(Error error) => Fail(error);
-
-        /// <inheritdoc/>
-        public override string ToString()
-        {
-            var warningCount = Warnings.Length;
-            var warningText = warningCount > 0 ? $" (Warnings: {warningCount})" : "";
-            if (IsSuccess) return $"Ok<{typeof(T).Name}>{warningText}";
-            return $"Fail<{typeof(T).Name}> [{Error.CodeKey}] ({Error.Severity}){warningText}";
-        }
-
-        // ----------------------
-        // Internal helpers
-        // ----------------------
-
-        /// <summary>
-        /// Normalizes warnings by removing default arrays and sorting them for deterministic order.
-        /// </summary>
-        private static ImmutableArray<Error> NormalizeWarnings(ImmutableArray<Error> src)
-        {
-            if (src.IsDefaultOrEmpty) return ImmutableArray<Error>.Empty;
-
-            // High allocation cost due to ToArray() -> Sort() -> CreateRange(). 
-            // This cost is justified by ensuring deterministic order for all warning collections.
-            var arr = src.ToArray();
-
-            Array.Sort(arr, (a, b) =>
-            {
-                // Primary sort key: Error Code Key
-                var c = string.CompareOrdinal(a.CodeKey, b.CodeKey);
-                if (c != 0) return c;
-
-                // Secondary sort key: Error Message
-                return string.CompareOrdinal(a.Message, b.Message);
-            });
-
-            return ImmutableArray.CreateRange(arr);
-        }
-
-        // Debugger property
-        private string DebuggerDisplay
-        {
-            get
-            {
-                var warnings = Warnings.Length > 0 ? $" | Warnings={Warnings.Length}" : string.Empty;
-                if (IsSuccess)
+                foreach (var e in _errors)
                 {
-                    var valueStr = _value is null ? "null" : _value.ToString();
-                    return $"Ok<{typeof(T).Name}> Value={valueStr}{warnings}";
+                    if (string.Equals(e.Code?.Key, code, StringComparison.Ordinal)) { error = e; return true; }
                 }
-                return $"Fail<{typeof(T).Name}> Error={_error?.CodeKey ?? "Unknown"}{warnings}";
             }
-        }
-    }
-
-    // --------------------------------------------------------------------------
-    // Result Builder (Refactored for Efficiency)
-    // --------------------------------------------------------------------------
-
-    /// <summary>
-    /// Lightweight result builder to create rich <see cref="Result{T}"/> instances without intermediate allocations
-    /// during the staging phase.
-    /// </summary>
-    public sealed class ResultBuilder<T>
-    {
-        private T? _value;
-        private Error? _error;
-        private Metadata.Metadata.Builder? _metaBuilder;
-        private ImmutableArray<Error>.Builder? _warningsBuilder;
-        private bool _isFailure;
-
-        /// <summary>Create a new builder instance.</summary>
-        public ResultBuilder() { }
-
-        /// <summary>Set the success value on the builder, implicitly setting the state to success.</summary>
-        public ResultBuilder<T> WithValue(T value)
-        {
-            _value = value;
-            _isFailure = false;
-            _error = null; // Ensure consistency
-            return this;
-        }
-
-        /// <summary>Set the error on the builder, implicitly setting the state to failure.</summary>
-        public ResultBuilder<T> WithError(Error error)
-        {
-            _error = error ?? throw new ArgumentNullException(nameof(error));
-            _isFailure = true;
-            _value = default; // Ensure consistency
-            return this;
-        }
-
-        /// <summary>Adds or updates a single key/value pair to the operational metadata.</summary>
-        public ResultBuilder<T> AddOperational(string key, object? value)
-        {
-            _metaBuilder ??= Metadata.Metadata.NewBuilder();
-            _metaBuilder.Set(key, value);
-            return this;
-        }
-
-        /// <summary>Adds a warning to the builder's collection.</summary>
-        public ResultBuilder<T> AddWarning(Error w)
-        {
-            if (w is null) return this;
-            _warningsBuilder ??= ImmutableArray.CreateBuilder<Error>();
-            _warningsBuilder.Add(w);
-            return this;
+            error = default!;
+            return false;
         }
 
         /// <summary>
-        /// Builds and returns the final immutable <see cref="Result{T}"/> instance.
+        /// Creates a task that represents the current result, allowing asynchronous consumption of the result value.
         /// </summary>
-        /// <exception cref="InvalidOperationException">Thrown if required fields are missing (e.g., error for failure).</exception>
-        public Result<T> Build()
-        {
-            var warnings = _warningsBuilder?.ToImmutable() ?? ImmutableArray<Error>.Empty;
-            var meta = _metaBuilder?.Build() ?? Metadata.Metadata.Empty;
-
-            if (_isFailure)
-            {
-                if (_error is null) throw new InvalidOperationException("ResultBuilder: error must be set for failure results.");
-                return new Result<T>(_error, meta, warnings);
-            }
-
-            // Success path
-            return new Result<T>(_value!, meta, warnings);
-        }
-    }
-
-    /// <summary>
-    /// Provides static factory methods for creating successful or failed result objects with optional operational
-    /// metadata and warnings.
-    /// </summary>
-    /// <remarks>The Result class offers convenient methods to construct instances of <see cref="Result{T}"/> representing
-    /// either successful or failed outcomes. These methods allow callers to supply a value or error, and optionally
-    /// attach operational metadata or configure error details using builder actions. All methods return
-    /// <see cref="Result{T}"/> instances with no warnings by default. This class is intended for use in scenarios where
-    /// operations need to communicate both their outcome and associated metadata in a structured manner.</remarks>
-    public static class Result
-    {
-        // ----------------------
-        // Fast-path factories
-        // ----------------------
+        /// <remarks>This method is useful for integrating synchronous result values into asynchronous workflows, such as
+        /// when returning a result from an async method signature.</remarks>
+        /// <returns>A <see cref="Task{Result}"/> that contains this result instance.</returns>
+        public Task<Result<T>> ToTask() => IsSuccess ? System.Threading.Tasks.Task.FromResult(this) : System.Threading.Tasks.Task.FromResult(this);
 
         /// <summary>
-        /// Creates a successful <see cref="Result{T}"/> containing the specified value.
+        /// Creates a <see cref="ValueTask{Result}"/> that represents the asynchronous result of this operation.
         /// </summary>
-        /// <typeparam name="T">The type of the value to be contained in the result.</typeparam>
-        /// <param name="value">The value to be wrapped in a successful result. Can be <c>null</c> for reference types.</param>
-        /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value.</returns>
-        public static Result<T> Ok<T>(T value) => new(value, Metadata.Metadata.Empty, ImmutableArray<Error>.Empty);
+        /// <returns>A <see cref="ValueTask{Result}"/> containing the result of the current operation.</returns>
+        public ValueTask<Result<T>> ToValueTask() => new(this);
 
-        /// <summary>
-        /// Creates a successful result containing the specified value and associated operational metadata.
-        /// </summary>
-        /// <typeparam name="T">The type of the value to be encapsulated in the result.</typeparam>
-        /// <param name="value">The value to be returned as part of the successful result.</param>
-        /// <param name="operationalMetadata">The operational metadata to associate with the result. Cannot be null.</param>
-        /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value and metadata.</returns>
-        public static Result<T> Ok<T>(T value, IMetadata operationalMetadata) =>
-            new(value, operationalMetadata, ImmutableArray<Error>.Empty);
-
-        /// <summary>
-        /// Creates a successful result containing the specified value and optional operational metadata.
-        /// </summary>
-        /// <remarks>Use this method to attach custom operational metadata to a successful result. If no
-        /// metadata configuration is required, pass null for the configureOperationalMetadata parameter.</remarks>
-        /// <typeparam name="T">The type of the value to be contained in the result.</typeparam>
-        /// <param name="value">The value to include in the successful result.</param>
-        /// <param name="configureOperationalMetadata">An action that configures the operational metadata for the result. 
-        /// If null, no additional metadata is set.</param>
-        /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value and configured operational 
-        /// metadata.</returns>
-        public static Result<T> Ok<T>(T value, Action<Metadata.Metadata.Builder> configureOperationalMetadata)
-        {
-            if (configureOperationalMetadata is null) return Ok(value);
-
-            var mb = Metadata.Metadata.NewBuilder();
-            configureOperationalMetadata(mb);
-
-            return new Result<T>(value, mb.Build(), ImmutableArray<Error>.Empty);
-        }
-
-        /// <summary>
-        /// Creates a failed result containing the specified error.
-        /// </summary>
-        /// <typeparam name="T">The type of the value that would be held by a successful result.</typeparam>
-        /// <param name="error">The error information to associate with the failed result. Cannot be null.</param>
-        /// <returns>A <see cref="Result{T}"/> representing a failed operation with the provided error.</returns>
-        public static Result<T> Fail<T>(Error error) => new(error, Metadata.Metadata.Empty, ImmutableArray<Error>.Empty);
-
-        /// <summary>
-        /// Creates a failed result containing the specified error and associated operational metadata.
-        /// </summary>
-        /// <remarks>Use this method to represent an operation that did not succeed and to provide detailed error
-        /// information and context for diagnostics or logging.</remarks>
-        /// <typeparam name="T">The type of the value that would be held by a successful result.</typeparam>
-        /// <param name="error">The error describing the reason for the failure. Cannot be null.</param>
-        /// <param name="operationalMetadata">The metadata associated with the failed operation. May provide additional context about the failure.</param>
-        /// <returns>A failed <see cref="Result{T}"/> instance containing the specified error and operational metadata.</returns>
-        public static Result<T> Fail<T>(Error error, IMetadata operationalMetadata) =>
-            new(error, operationalMetadata, ImmutableArray<Error>.Empty);
-
-        /// <summary>
-        /// Creates a failed result with a structured error and optional operational metadata.
-        /// </summary>
-        /// <remarks>Use this method to create a failed result when an operation cannot produce a
-        /// successful value. The error is always required and should describe the failure. Operational metadata can be
-        /// provided to supply additional context about the failure.</remarks>
-        /// <typeparam name="T">The type of the value that would have been returned if the operation succeeded.</typeparam>
-        /// <param name="configureError">A delegate that configures the error details using an <see cref="Error.Builder"/>. This parameter cannot be
-        /// null.</param>
-        /// <param name="configureOperationalMetadata">An optional delegate that configures additional operational metadata using a <see
-        /// cref="Metadata.Metadata.Builder"/>. If null, no operational metadata is included.</param>
-        /// <returns>A <see cref="Result{T}"/> representing a failed operation, containing the configured error and optional
-        /// operational metadata.</returns>
-        public static Result<T> Fail<T>(Action<Error.Builder> configureError, Action<Metadata.Metadata.Builder>? configureOperationalMetadata = null)
-        {
-            var eb = Error.NewBuilder("UNKNOWN_OPERATION_FAILURE", "An operation failed to produce a structured error.");
-            configureError?.Invoke(eb);
-            var err = eb.Build();
-
-            IMetadata? meta = null;
-            if (configureOperationalMetadata is not null)
-            {
-                var mb = Metadata.Metadata.NewBuilder();
-                configureOperationalMetadata(mb);
-                meta = mb.Build();
-            }
-
-            return new Result<T>(error: err, operationalMetadata: meta, warnings: ImmutableArray<Error>.Empty);
-        }
+        private string DebuggerDisplay => IsSuccess ? $"Succeed<{typeof(T).Name}>({_value})" : $"Fail<{typeof(T).Name}>({_errors.Length} errors)";
     }
 }
