@@ -11,7 +11,7 @@ namespace Zentient.Core
     public interface IDescribed
     {
         /// <summary>
-        /// Descriptive text; may be <c>null</c>.
+        /// Descriptive text; may be <see langword="null"/>.
         /// </summary>
         string? Description { get; }
     }

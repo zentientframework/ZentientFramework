@@ -27,19 +27,19 @@ namespace Zentient.Metadata
         /// <summary>
         /// Return a new metadata snapshot with <paramref name="key"/> set to <paramref name="value"/>.
         /// </summary>
-        /// <param name="key">The metadata key to set. Must not be <c>null</c>.</param>
-        /// <param name="value">The value to associate with <paramref name="key"/>. May be <c>null</c>.</param>
+        /// <param name="key">The metadata key to set. Must not be <see langword="null"/>.</param>
+        /// <param name="value">The value to associate with <paramref name="key"/>. May be <see langword="null"/>.</param>
         /// <returns>
         /// A new <see cref="IMetadata"/> instance that contains the same entries as the current instance,
         /// except that <paramref name="key"/> maps to <paramref name="value"/>. The original instance is unchanged.
         /// </returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <see langword="null"/>.</exception>
         IMetadata Set(string key, object? value);
 
         /// <summary>
         /// Return a new metadata snapshot with the specified <paramref name="key"/> removed.
         /// </summary>
-        /// <param name="key">The metadata key to remove. When <c>null</c> implementations may simply return the current instance.</param>
+        /// <param name="key">The metadata key to remove. When <see langword="null"/> implementations may simply return the current instance.</param>
         /// <returns>
         /// A new <see cref="IMetadata"/> instance without the specified key. If the key was not present, the method
         /// may return the original snapshot instance (no-op semantics).
@@ -64,13 +64,13 @@ namespace Zentient.Metadata
         /// <param name="value">
         /// When the method returns, contains the converted value if the key was found and conversion succeeded;
         /// otherwise the default value of <typeparamref name="T"/>. The <paramref name="value"/> parameter is annotated
-        /// with <see cref="MaybeNullWhenAttribute"/> to reflect nullability when the method returns <c>false</c>.
+        /// with <see cref="MaybeNullWhenAttribute"/> to reflect nullability when the method returns <see langword="false"/>.
         /// </param>
-        /// <returns><c>true</c> when the key exists and conversion to <typeparamref name="T"/> succeeded; otherwise <c>false</c>.</returns>
+        /// <returns><see langword="true"/> when the key exists and conversion to <typeparamref name="T"/> succeeded; otherwise <see langword="false"/>.</returns>
         /// <remarks>
         /// Implementations should provide best-effort conversions for common primitives and enums (for example by using
         /// <see cref="Convert.ChangeType(object, Type)"/> or custom converters). Consumers should treat failure to convert as an
-        /// expected outcome and handle the <c>false</c> return appropriately.
+        /// expected outcome and handle the <see langword="false"/> return appropriately.
         /// </remarks>
         bool TryGet<T>(string key, [MaybeNullWhen(false)] out T value);
 

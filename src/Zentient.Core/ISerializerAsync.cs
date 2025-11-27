@@ -27,7 +27,7 @@ namespace Zentient.Core
 
         /// <summary>
         /// Asynchronously deserializes the specified string payload into an instance of <typeparamref name="T"/>.
-        /// Returns <c>null</c> if payload is empty and <typeparamref name="T"/> is nullable.
+        /// Returns <see langword="null"/> if payload is empty and <typeparamref name="T"/> is nullable.
         /// </summary>
         /// <typeparam name="T">The type to deserialize into.</typeparam>
         /// <param name="payload">The string payload to deserialize.</param>

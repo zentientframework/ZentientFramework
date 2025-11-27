@@ -143,8 +143,8 @@ namespace Zentient.Codes
         /// then using registered auto-resolvers.
         /// </summary>
         /// <param name="hint">The hint string (e.g., a key, a full type name) to look up.</param>
-        /// <param name="definition">When the method returns, contains the resolved definition object; otherwise, <c>null</c>.</param>
-        /// <returns><see cref="true"/> if a definition was successfully resolved; otherwise, <see cref="false"/>.</returns>
+        /// <param name="definition">When the method returns, contains the resolved definition object; otherwise, <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if a definition was successfully resolved; otherwise, <see langword="false"/>.</returns>
         public static bool TryResolve(string hint, out object? definition)
         {
             if (hint is null) { definition = null; return false; }
@@ -210,7 +210,7 @@ namespace Zentient.Codes
         /// <summary>
         /// Sets the global requirement for code keys to be unique across all definition types.
         /// </summary>
-        /// <param name="requireUnique">If <see cref="true"/>, key uniqueness is enforced globally.</param>
+        /// <param name="requireUnique">If <see langword="true"/>, key uniqueness is enforced globally.</param>
         public static void ConfigureKeyUniqueness(bool requireUnique)
         {
             Volatile.Write(ref s_requireKeysUniqueAcrossDefinitionTypes, requireUnique);
@@ -221,8 +221,8 @@ namespace Zentient.Codes
         /// This is an expensive operation intended mainly for diagnostics and advanced scenarios.
         /// </summary>
         /// <param name="defType">The code definition type to search for.</param>
-        /// <param name="hint">When the method returns, contains the registration hint; otherwise, <c>null</c>.</param>
-        /// <returns><see cref="true"/> if a hint was found; otherwise, <see cref="false"/>.</returns>
+        /// <param name="hint">When the method returns, contains the registration hint; otherwise, <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if a hint was found; otherwise, <see langword="false"/>.</returns>
         public static bool TryGetHintForDefinitionType(Type defType, out string? hint)
         {
             foreach (var kv in s_definitionResolvers)

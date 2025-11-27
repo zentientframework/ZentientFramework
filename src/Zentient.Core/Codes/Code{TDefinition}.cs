@@ -91,9 +91,9 @@ namespace Zentient.Codes
         /// <param name="metadata">Optional diagnostic metadata.</param>
         /// <param name="displayName">Optional human-readable display name.</param>
         /// <param name="equivalenceComparer">Optional custom comparer to check if a new definition is equivalent to an existing one.</param>
-        /// <param name="allowOverride">If <see cref="true"/> and a non-equivalent definition is detected, the operation proceeds (but the cached instance is not replaced in the default cache).</param>
+        /// <param name="allowOverride">If <see langword="true"/> and a non-equivalent definition is detected, the operation proceeds (but the cached instance is not replaced in the default cache).</param>
         /// <returns>The canonical cached <see cref="ICode{TDefinition}"/> instance.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if an existing code is found with a non-equivalent definition and <paramref name="allowOverride"/> is <see cref="false"/>.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if an existing code is found with a non-equivalent definition and <paramref name="allowOverride"/> is <see langword="false"/>.</exception>
         public static ICode<TDefinition> GetOrCreate(
             string key,
             TDefinition definition,
@@ -177,13 +177,13 @@ namespace Zentient.Codes
 
         /// <summary>
         /// Safe, non-throwing version of <see cref="GetOrCreate(string, TDefinition, IMetadata?, string?, Func{TDefinition, TDefinition, bool}?, bool)"/>.
-        /// Catches any validation or consistency errors and returns <see cref="false"/>.
+        /// Catches any validation or consistency errors and returns <see langword="false"/>.
         /// </summary>
         /// <param name="key">The unique canonical key for the code.</param>
         /// <param name="definition">The domain definition to associate with the code.</param>
-        /// <param name="code">When the method returns, contains the resulting code instance; otherwise, <c>null</c>.</param>
-        /// <param name="allowOverride">If <see cref="true"/>, relaxes the definition equivalence check for existing codes.</param>
-        /// <returns><see cref="true"/> if the code was successfully retrieved or created; otherwise, <see cref="false"/>.</returns>
+        /// <param name="code">When the method returns, contains the resulting code instance; otherwise, <see langword="null"/>.</param>
+        /// <param name="allowOverride">If <see langword="true"/>, relaxes the definition equivalence check for existing codes.</param>
+        /// <returns><see langword="true"/> if the code was successfully retrieved or created; otherwise, <see langword="false"/>.</returns>
         public static bool TryGetOrCreate(string key, TDefinition definition, out ICode<TDefinition> code, bool allowOverride = false)
         {
             try
@@ -205,7 +205,7 @@ namespace Zentient.Codes
         /// <param name="key">The unique canonical key for the code.</param>
         /// <param name="definition">The domain definition to associate with the code.</param>
         /// <param name="code">When the method returns, contains the newly created or existing code instance.</param>
-        /// <returns><see cref="true"/> if a new instance was created and added to the cache; <see cref="false"/> if an existing code was found.</returns>
+        /// <returns><see langword="true"/> if a new instance was created and added to the cache; <see langword="false"/> if an existing code was found.</returns>
         public static bool TryCreate(string key, TDefinition definition, out ICode<TDefinition> code)
         {
             CodeValidation.ValidateKey(key);
@@ -244,7 +244,7 @@ namespace Zentient.Codes
         /// Equality is based on: Key, Definition Type, and Definition Fingerprint.
         /// </summary>
         /// <param name="obj">The object to compare against.</param>
-        /// <returns><see cref="true"/> if the objects are equivalent; otherwise, <see cref="false"/>.</returns>
+        /// <returns><see langword="true"/> if the objects are equivalent; otherwise, <see langword="false"/>.</returns>
         public override bool Equals(object? obj)
         {
             if (ReferenceEquals(this, obj)) return true;

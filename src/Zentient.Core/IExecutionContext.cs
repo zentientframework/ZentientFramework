@@ -47,7 +47,7 @@ namespace Zentient.Core
         bool TryGet<T>(string key, out T? value, out string? reason);
 
         /// <summary>
-        /// Store or remove a contextual value. Passing <c>null</c> removes the value.
+        /// Store or remove a contextual value. Passing <see langword="null"/> removes the value.
         /// Throws only for unrecoverable input errors (null/whitespace key).
         /// </summary>
         /// <param name="key">The key with which the value will be associated. Cannot be <see langword="null"/> or whitespace.</param>

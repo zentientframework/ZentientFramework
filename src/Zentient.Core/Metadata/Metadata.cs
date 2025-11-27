@@ -305,7 +305,7 @@ namespace Zentient.Metadata
             /// <typeparam name="T">Target type to convert to.</typeparam>
             /// <param name="key">Metadata key.</param>
             /// <param name="value">When successful, contains the converted value; otherwise default.</param>
-            /// <returns><c>true</c> when conversion succeeds; otherwise <c>false</c>.</returns>
+            /// <returns><see langword="true"/> when conversion succeeds; otherwise <see langword="false"/>.</returns>
             public bool TryGet<T>(string key, [MaybeNullWhen(false)] out T value)
             {
                 if (!TryGetValue(key, out var raw)) { value = default; return false; }
@@ -515,7 +515,7 @@ namespace Zentient.Metadata
             /// <typeparam name="T">Target conversion type.</typeparam>
             /// <param name="raw">Raw value to convert; may be null.</param>
             /// <param name="value">When conversion succeeds, contains the converted value; otherwise default.</param>
-            /// <returns><c>true</c> if conversion succeeded; otherwise <c>false</c>.</returns>
+            /// <returns><see langword="true"/> if conversion succeeded; otherwise <see langword="false"/>.</returns>
             public static bool TryConvert<T>(object? raw, out T? value)
             {
                 value = default;
