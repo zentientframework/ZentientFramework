@@ -3,10 +3,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Results
+namespace Zentient.Primitives
 {
     using System;
     using System.Collections.Immutable;
+    using System.Runtime.CompilerServices;
+    using Zentient.Errors;
 
     /// <summary>
     /// Provides static factory methods for creating successful or failed result instances with associated values or
@@ -24,6 +26,7 @@ namespace Zentient.Results
         /// <typeparam name="T">The type of the successful payload.</typeparam>
         /// <param name="value">The value to be encapsulated in the successful result.</param>
         /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Result<T> Succeed<T>(T value) => Result<T>.Succeed(value);
 
         /// <summary>
@@ -34,6 +37,7 @@ namespace Zentient.Results
         /// result. Must contain at least one element.</param>
         /// <returns>A <see cref="Result{T}"/> representing a failed operation with the provided errors.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is default or empty.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Result<T> Fail<T>(ImmutableArray<Error> errors) => Result<T>.Fail(errors);
 
         /// <summary>
@@ -44,6 +48,7 @@ namespace Zentient.Results
         /// element.</param>
         /// <returns>A <see cref="Result{T}"/> instance representing a failed operation with the provided errors.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is <see langword="null"/> or does not contain at least one element.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Result<T> Fail<T>(params Error[] errors) => Result<T>.Fail(errors);
     }
 }

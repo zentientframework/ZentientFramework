@@ -3,13 +3,14 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Results
+namespace Zentient.Primitives
 {
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Runtime.CompilerServices;
     using System.Threading.Tasks;
     using Zentient.Errors;
 
@@ -28,6 +29,10 @@ namespace Zentient.Results
 
         private enum Tag : byte { None = 0, Success = 1, Failure = 2 }
 
+        /// <summary>
+        /// Initializes a new instance of the Result class that represents a successful result with the specified value.
+        /// </summary>
+        /// <param name="value">The value to associate with the successful result. This parameter cannot be null.</param>
         internal Result(T value)
         {
             _value = value;
@@ -35,6 +40,11 @@ namespace Zentient.Results
             _tag = Tag.Success;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the Result class that represents a failure with the specified collection of
+        /// errors.
+        /// </summary>
+        /// <param name="errors">An immutable array containing the errors that describe the failure. Cannot be null.</param>
         internal Result(ImmutableArray<Error> errors)
         {
             ArgumentNullException.ThrowIfNull($"{nameof(errors)} cannot be null.");
@@ -52,6 +62,7 @@ namespace Zentient.Results
         /// </summary>
         /// <param name="value">The value to be encapsulated in the successful result.</param>
         /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Result<T> Succeed(T value) => new(value);
 
         /// <summary>
@@ -61,6 +72,7 @@ namespace Zentient.Results
         /// result. Must contain at least one element.</param>
         /// <returns>A <see cref="Result{T}"/> representing a failed operation with the provided errors.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is default or empty.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Result<T> Fail(ImmutableArray<Error> errors)
         {
             if (errors.IsDefaultOrEmpty) throw new ArgumentException("errors must contain at least one Error", nameof(errors));
@@ -74,6 +86,7 @@ namespace Zentient.Results
         /// element.</param>
         /// <returns>A <see cref="Result{T}"/> instance representing a failed operation with the provided errors.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is <see langword="null"/> or does not contain at least one element.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Result<T> Fail(params Error[] errors)
         {
             if (errors is null || errors.Length == 0) throw new ArgumentException("errors must contain at least one Error", nameof(errors));
@@ -87,18 +100,46 @@ namespace Zentient.Results
         /// <summary>True when the result represents success.</summary>
         [MemberNotNullWhen(true, nameof(Value))]
         [MemberNotNullWhen(false, nameof(Errors))]
-        public bool IsSuccess => _tag == Tag.Success;
+        public bool IsSuccess
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return _tag == Tag.Success;
+            }
+        }
 
         /// <summary>True when the result represents failure.</summary>
         [MemberNotNullWhen(true, nameof(Errors))]
         [MemberNotNullWhen(false, nameof(Value))]
-        public bool IsFailure => _tag == Tag.Failure;
+        public bool IsFailure
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return _tag == Tag.Failure;
+            }
+        }
 
         /// <summary>Returns the success value or throws <see cref="InvalidOperationException"/> when result is failure.</summary>
-        public T Value => IsSuccess ? _value : throw new InvalidOperationException("Result is not Success.");
+        public T Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return IsSuccess ? _value : throw new InvalidOperationException("Result is not Success.");
+            }
+        }
 
         /// <summary>Returns the error for failure results or throws <see cref="InvalidOperationException"/> when result is success.</summary>
-        public ImmutableArray<Error> Errors => IsFailure ? _errors : ImmutableArray<Error>.Empty;
+        public ImmutableArray<Error> Errors
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return IsFailure ? _errors : ImmutableArray<Error>.Empty;
+            }
+        }
 
         // -----------------------
         // Basic combinators — allocation-conscious
@@ -116,6 +157,7 @@ namespace Zentient.Results
         /// <returns>A <see cref="Result{U}"/> containing the mapped value if the original result was successful; otherwise, a failed
         /// result containing the same errors.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="mapper"/> is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Result<U> Map<U>(Func<T, U> mapper)
         {
             if (mapper is null) throw new ArgumentNullException($"{nameof(mapper)} is null");
@@ -135,6 +177,7 @@ namespace Zentient.Results
         /// <returns>A result containing the value produced by the binder function if the current result is successful;
         /// otherwise, a failed result containing the original errors.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="binder"/> is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Result<U> Bind<U>(Func<T, Result<U>> binder)
         {
             if (binder is null) throw new ArgumentNullException($"{nameof(binder)} is null");
@@ -154,6 +197,7 @@ namespace Zentient.Results
         /// task yields the result of the binder function; otherwise, it yields a failed result containing the original
         /// errors.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="binder"/> is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ValueTask<Result<U>> BindAsync<U>(Func<T, ValueTask<Result<U>>> binder)
         {
             if (binder is null) throw new ArgumentNullException(nameof(binder));
@@ -172,6 +216,7 @@ namespace Zentient.Results
         /// <returns>The value returned by either <paramref name="onSuccess"/> or <paramref name="onFailure"/>, depending on the result
         /// state.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="onSuccess"/> or <paramref name="onFailure"/> is <see langword="null"/>.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public R Match<R>(Func<T, R> onSuccess, Func<ImmutableArray<Error>, R> onFailure)
         {
             if (onSuccess is null) throw new ArgumentNullException(nameof(onSuccess));
@@ -184,6 +229,7 @@ namespace Zentient.Results
         /// </summary>
         /// <param name="defaultValue">The value to return if the operation was not successful.</param>
         /// <returns>The contained value if successful; otherwise, the specified default value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T ValueOrDefault(T defaultValue) => IsSuccess ? _value : defaultValue;
 
         /// <summary>
@@ -192,6 +238,7 @@ namespace Zentient.Results
         /// <param name="value">When this method returns, contains the value associated with a successful result if available; otherwise,
         /// the default value for type <typeparamref name="T"/>.</param>
         /// <returns>true if the value was successfully retrieved; otherwise, false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetValue(out T value)
         {
             if (IsSuccess) { value = _value; return true; }
@@ -327,12 +374,14 @@ namespace Zentient.Results
         /// <remarks>This method is useful for integrating synchronous result values into asynchronous workflows, such as
         /// when returning a result from an async method signature.</remarks>
         /// <returns>A <see cref="Task{Result}"/> that contains this result instance.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task<Result<T>> ToTask() => IsSuccess ? System.Threading.Tasks.Task.FromResult(this) : System.Threading.Tasks.Task.FromResult(this);
 
         /// <summary>
         /// Creates a <see cref="ValueTask{Result}"/> that represents the asynchronous result of this operation.
         /// </summary>
         /// <returns>A <see cref="ValueTask{Result}"/> containing the result of the current operation.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ValueTask<Result<T>> ToValueTask() => new(this);
 
         private string DebuggerDisplay => IsSuccess ? $"Succeed<{typeof(T).Name}>({_value})" : $"Fail<{typeof(T).Name}>({_errors.Length} errors)";
