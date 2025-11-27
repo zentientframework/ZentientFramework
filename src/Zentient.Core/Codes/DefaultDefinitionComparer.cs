@@ -19,7 +19,7 @@ namespace Zentient.Codes
         /// </summary>
         /// <param name="a">The first definition.</param>
         /// <param name="b">The second definition.</param>
-        /// <returns><c>true</c> if the definitions are considered equivalent; otherwise, <c>false</c>.</returns>
+        /// <returns><see cref="true"/> if the definitions are considered equivalent; otherwise, <see cref="false"/>.</returns>
         public bool AreEquivalent(ICodeDefinition a, ICodeDefinition b)
         {
             if (ReferenceEquals(a, b)) return true;

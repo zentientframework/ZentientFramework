@@ -111,7 +111,7 @@ namespace Zentient.Codes
         /// <summary>
         /// Conditionally adds a single key/value pair to the metadata, allowing for fluent construction flows.
         /// </summary>
-        /// <param name="condition">If <c>true</c>, the metadata is added.</param>
+        /// <param name="condition">If <see cref="true"/>, the metadata is added.</param>
         /// <param name="key">The metadata key.</param>
         /// <param name="value">The metadata value.</param>
         /// <returns>The builder instance for chaining.</returns>
@@ -124,7 +124,7 @@ namespace Zentient.Codes
         /// <summary>
         /// Conditionally merges an existing <see cref="IMetadata"/> object, allowing for fluent construction flows.
         /// </summary>
-        /// <param name="condition">If <c>true</c>, the metadata is merged.</param>
+        /// <param name="condition">If <see cref="true"/>, the metadata is merged.</param>
         /// <param name="metadata">The metadata object to merge.</param>
         /// <returns>The builder instance for chaining.</returns>
         public ICodeBuilder<TDefinition> WithMetadataIf(bool condition, IMetadata metadata)

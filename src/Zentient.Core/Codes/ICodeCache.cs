@@ -13,7 +13,7 @@
         /// <typeparam name="TDefinition">The expected type of the code definition.</typeparam>
         /// <param name="key">The code's canonical key.</param>
         /// <param name="code">When the method returns, contains the code instance; otherwise, <c>null</c>.</param>
-        /// <returns><c>true</c> if the code was found; otherwise, <c>false</c>.</returns>
+        /// <returns><see cref="true"/> if the code was found; otherwise, <see cref="false"/>.</returns>
         bool TryGet<TDefinition>(string key, out ICode<TDefinition>? code) where TDefinition : ICodeDefinition;
 
         /// <summary>

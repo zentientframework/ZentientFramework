@@ -15,13 +15,13 @@ namespace Zentient.Codes
     {
         /// <summary>
         /// Gets or sets a value indicating whether checks for empty or whitespace display names should be skipped.
-        /// Defaults to <c>false</c> (validation is enabled).
+        /// Defaults to <see cref="false"/> (validation is enabled).
         /// </summary>
         public bool DisableDisplayNameValidation { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether whitespace characters are allowed within the canonical <see cref="ICode.Key"/>.
-        /// Defaults to <c>false</c> (whitespace is not allowed).
+        /// Defaults to <see cref="false"/> (whitespace is not allowed).
         /// </summary>
         public bool AllowWhitespaceInKey { get; set; }
 
