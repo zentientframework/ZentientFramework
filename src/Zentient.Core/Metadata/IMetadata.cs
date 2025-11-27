@@ -1,4 +1,4 @@
-﻿// <copyright file="IMetadata.Metadata.cs" author="Zentient Framework Team">
+﻿// <copyright file="IMetadata.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -8,6 +8,7 @@ namespace Zentient.Metadata
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
+    using Zentient.Facades;
 
     /// <summary>
     /// Represents a read-only, immutable collection of key/value metadata entries with functional mutation helpers.
@@ -17,9 +18,8 @@ namespace Zentient.Metadata
     /// for use as deterministic, low-allocation metadata carriers. Mutating operations return new snapshots rather
     /// than changing the current instance. Keys are expected to be stable strings and comparisons are performed
     /// using <see cref="StringComparer.Ordinal"/> semantics by convention.
-    ///
     /// Implementations SHOULD ensure that enumeration order is deterministic (for example by sorting keys) so that
-    /// serializations and diffs are predictable. Use <see cref="Zentient.Metadata.Metadata.NewBuilder"/> or the
+    /// serializations and diffs are predictable. Use <see cref="Metadata.Builder"/> or the
     /// provided factory helpers to construct and compose metadata snapshots.
     /// </remarks>
     public interface IMetadata : IReadOnlyDictionary<string, object?>

@@ -13,18 +13,19 @@ namespace Zentient.Primitives
     using System.Runtime.CompilerServices;
     using System.Threading.Tasks;
     using Zentient.Errors;
+    using Zentient.Exceptions;
 
     /// <summary>
-    /// High-performance discriminated result type carrying either a success value of type <typeparamref name="T"/>
+    /// High-performance discriminated result type carrying either a success value of type <typeparamref name="TValue"/>
     /// or an <see cref="Error"/>. This struct is immutable, ensures minimal allocations on the success path,
     /// and simplifies functional programming patterns like Map and Bind.
     /// </summary>
-    /// <typeparam name="T">Type of the successful payload.</typeparam>
+    /// <typeparam name="TValue">Type of the successful payload.</typeparam>
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
-    public readonly struct Result<T>
+    public readonly struct Result<TValue>
     {
         private readonly Tag _tag;
-        private readonly T _value;
+        private readonly TValue _value;
         private readonly ImmutableArray<Error> _errors;
 
         private enum Tag : byte { None = 0, Success = 1, Failure = 2 }
@@ -33,10 +34,10 @@ namespace Zentient.Primitives
         /// Initializes a new instance of the Result class that represents a successful result with the specified value.
         /// </summary>
         /// <param name="value">The value to associate with the successful result. This parameter cannot be null.</param>
-        internal Result(T value)
+        internal Result(TValue value)
         {
             _value = value;
-            _errors = default;
+            _errors = ImmutableArray<Error>.Empty;
             _tag = Tag.Success;
         }
 
@@ -47,9 +48,8 @@ namespace Zentient.Primitives
         /// <param name="errors">An immutable array containing the errors that describe the failure. Cannot be null.</param>
         internal Result(ImmutableArray<Error> errors)
         {
-            ArgumentNullException.ThrowIfNull($"{nameof(errors)} cannot be null.");
             _value = default!;
-            _errors = errors;
+            _errors = Guard.AgainstNull(errors, nameof(errors));
             _tag = Tag.Failure;
         }
 
@@ -63,7 +63,7 @@ namespace Zentient.Primitives
         /// <param name="value">The value to be encapsulated in the successful result.</param>
         /// <returns>A <see cref="Result{T}"/> representing a successful operation with the provided value.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Result<T> Succeed(T value) => new(value);
+        public static Result<TValue> Succeed(TValue value) => new(value);
 
         /// <summary>
         /// Creates a failed result containing the specified collection of errors.
@@ -73,10 +73,10 @@ namespace Zentient.Primitives
         /// <returns>A <see cref="Result{T}"/> representing a failed operation with the provided errors.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is default or empty.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Result<T> Fail(ImmutableArray<Error> errors)
+        public static Result<TValue> Fail(ImmutableArray<Error> errors)
         {
-            if (errors.IsDefaultOrEmpty) throw new ArgumentException("errors must contain at least one Error", nameof(errors));
-            return new Result<T>(errors);
+            Guard.AgainstNullOrEmpty(errors, nameof(errors));
+            return new Result<TValue>(errors);
         }
 
         /// <summary>
@@ -87,10 +87,10 @@ namespace Zentient.Primitives
         /// <returns>A <see cref="Result{T}"/> instance representing a failed operation with the provided errors.</returns>
         /// <exception cref="ArgumentException">Thrown if <paramref name="errors"/> is <see langword="null"/> or does not contain at least one element.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Result<T> Fail(params Error[] errors)
+        public static Result<TValue> Fail(params Error[] errors)
         {
             if (errors is null || errors.Length == 0) throw new ArgumentException("errors must contain at least one Error", nameof(errors));
-            return new Result<T>(ImmutableArray.CreateRange(errors));
+            return new Result<TValue>(ImmutableArray.CreateRange(errors));
         }
 
         // ----------------------
@@ -122,12 +122,12 @@ namespace Zentient.Primitives
         }
 
         /// <summary>Returns the success value or throws <see cref="InvalidOperationException"/> when result is failure.</summary>
-        public T Value
+        public TValue Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                return IsSuccess ? _value : throw new InvalidOperationException("Result is not Success.");
+                return IsSuccess ? _value : throw new ResultStateException<TValue>(_errors);
             }
         }
 
@@ -158,9 +158,9 @@ namespace Zentient.Primitives
         /// result containing the same errors.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="mapper"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Result<U> Map<U>(Func<T, U> mapper)
+        public Result<U> Map<U>(Func<TValue, U> mapper)
         {
-            if (mapper is null) throw new ArgumentNullException($"{nameof(mapper)} is null");
+            Guard.AgainstNull(mapper, nameof(mapper));
             return IsSuccess ? Result<U>.Succeed(mapper(_value)) : Result<U>.Fail(_errors);
         }
 
@@ -178,9 +178,9 @@ namespace Zentient.Primitives
         /// otherwise, a failed result containing the original errors.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="binder"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Result<U> Bind<U>(Func<T, Result<U>> binder)
+        public Result<U> Bind<U>(Func<TValue, Result<U>> binder)
         {
-            if (binder is null) throw new ArgumentNullException($"{nameof(binder)} is null");
+            Guard.AgainstNull(binder, nameof(binder));
             return IsSuccess ? binder(_value) : Result<U>.Fail(_errors);
         }
 
@@ -198,9 +198,9 @@ namespace Zentient.Primitives
         /// errors.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="binder"/> is null.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ValueTask<Result<U>> BindAsync<U>(Func<T, ValueTask<Result<U>>> binder)
+        public ValueTask<Result<U>> BindAsync<U>(Func<TValue, ValueTask<Result<U>>> binder)
         {
-            if (binder is null) throw new ArgumentNullException(nameof(binder));
+            Guard.AgainstNull(binder, nameof(binder));
             return IsSuccess ? binder(_value) : new ValueTask<Result<U>>(Result<U>.Fail(_errors));
         }
 
@@ -217,10 +217,10 @@ namespace Zentient.Primitives
         /// state.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="onSuccess"/> or <paramref name="onFailure"/> is <see langword="null"/>.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public R Match<R>(Func<T, R> onSuccess, Func<ImmutableArray<Error>, R> onFailure)
+        public R Match<R>(Func<TValue, R> onSuccess, Func<ImmutableArray<Error>, R> onFailure)
         {
-            if (onSuccess is null) throw new ArgumentNullException(nameof(onSuccess));
-            if (onFailure is null) throw new ArgumentNullException(nameof(onFailure));
+            Guard.AgainstNull(onSuccess, nameof(onSuccess));
+            Guard.AgainstNull(onFailure, nameof(onFailure));
             return IsSuccess ? onSuccess(_value) : onFailure(_errors);
         }
 
@@ -230,18 +230,23 @@ namespace Zentient.Primitives
         /// <param name="defaultValue">The value to return if the operation was not successful.</param>
         /// <returns>The contained value if successful; otherwise, the specified default value.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T ValueOrDefault(T defaultValue) => IsSuccess ? _value : defaultValue;
+        public TValue ValueOrDefault(TValue defaultValue) => IsSuccess ? _value : defaultValue;
 
         /// <summary>
         /// Attempts to retrieve the stored value if the operation was successful.
         /// </summary>
         /// <param name="value">When this method returns, contains the value associated with a successful result if available; otherwise,
-        /// the default value for type <typeparamref name="T"/>.</param>
+        /// the default value for type <typeparamref name="TValue"/>.</param>
         /// <returns>true if the value was successfully retrieved; otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetValue(out T value)
+        public bool TryGetValue(out TValue value)
         {
-            if (IsSuccess) { value = _value; return true; }
+            if (IsSuccess)
+            {
+                value = _value;
+                return true;
+            }
+
             value = default!;
             return false;
         }
@@ -258,12 +263,12 @@ namespace Zentient.Primitives
         /// <returns>A <see cref="Result{T}"/> that is unchanged if the current result is a failure or if the condition is satisfied;
         /// otherwise, a failure result containing <paramref name="errorIfFalse"/>.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="predicate"/> or <paramref name="errorIfFalse"/> is <see langword="null"/>.</exception>
-        public Result<T> Ensure(Func<T, bool> predicate, Error errorIfFalse)
+        public Result<TValue> Ensure(Func<TValue, bool> predicate, Error errorIfFalse)
         {
-            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
-            if (errorIfFalse is null) throw new ArgumentNullException(nameof(errorIfFalse));
-            if (IsFailure) return this;
-            return predicate(_value) ? this : Fail(ImmutableArray.Create(errorIfFalse));
+            Guard.AgainstNull(predicate, nameof(predicate));
+            Guard.AgainstNull(errorIfFalse, nameof(errorIfFalse));
+
+            return IsFailure || predicate(_value) ? this : Fail(ImmutableArray.Create(errorIfFalse));
         }
 
         /// <summary>
@@ -279,7 +284,7 @@ namespace Zentient.Primitives
         /// name="first"/>.</param>
         /// <returns>A <see cref="Result{T}"/> that is successful if either input is successful; otherwise, a failed result
         /// containing the combined errors from both inputs.</returns>
-        public static Result<T> Combine(Result<T> first, Result<T> second)
+        public static Result<TValue> Combine(Result<TValue> first, Result<TValue> second)
         {
             if (first.IsSuccess) return second;
             if (second.IsSuccess) return first;
@@ -306,12 +311,12 @@ namespace Zentient.Primitives
         /// <returns>A result containing a read-only list of successfully mapped values if all mappings succeed; otherwise, a failure
         /// result containing the errors encountered.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="items"/> or <paramref name="mapper"/> is null.</exception>
-        public static Result<IReadOnlyList<T>> Traverse<TInput>(IEnumerable<TInput> items, Func<TInput, Result<T>> mapper, bool aggregateAllErrors = true)
+        public static Result<IReadOnlyList<TValue>> Traverse<TInput>(IEnumerable<TInput> items, Func<TInput, Result<TValue>> mapper, bool aggregateAllErrors = true)
         {
-            if (items is null) throw new ArgumentNullException(nameof(items));
-            if (mapper is null) throw new ArgumentNullException(nameof(mapper));
+            Guard.AgainstNull(items, nameof(items));
+            Guard.AgainstNull(mapper, nameof(mapper));
 
-            var valuesBuilder = ImmutableArray.CreateBuilder<T>();
+            var valuesBuilder = ImmutableArray.CreateBuilder<TValue>();
             var errorsBuilder = ImmutableArray.CreateBuilder<Error>();
 
             foreach (var it in items)
@@ -327,13 +332,13 @@ namespace Zentient.Primitives
                     if (!aggregateAllErrors)
                     {
                         // short-circuit on first error
-                        return Result<IReadOnlyList<T>>.Fail(errorsBuilder.ToImmutable());
+                        return Result<IReadOnlyList<TValue>>.Fail(errorsBuilder.ToImmutable());
                     }
                 }
             }
 
-            if (errorsBuilder.Count > 0) return Result<IReadOnlyList<T>>.Fail(errorsBuilder.ToImmutable());
-            return Result<IReadOnlyList<T>>.Succeed((IReadOnlyList<T>)valuesBuilder.ToImmutable());
+            if (errorsBuilder.Count > 0) return Result<IReadOnlyList<TValue>>.Fail(errorsBuilder.ToImmutable());
+            return Result<IReadOnlyList<TValue>>.Succeed((IReadOnlyList<TValue>)valuesBuilder.ToImmutable());
         }
 
         /// <summary>
@@ -350,13 +355,14 @@ namespace Zentient.Primitives
         /// langword="true"/>, all errors are combined; otherwise, only the first error is returned.</param>
         /// <returns>A result containing a read-only list of all successful values if every result in the sequence is successful;
         /// otherwise, a result containing the aggregated error(s).</returns>
-        public static Result<IReadOnlyList<T>> Sequence(IEnumerable<Result<T>> results, bool aggregateAllErrors = true)
+        public static Result<IReadOnlyList<TValue>> Sequence(IEnumerable<Result<TValue>> results, bool aggregateAllErrors = true)
             => Traverse(results, r => r, aggregateAllErrors);
 
         /// <summary>Try find first error with matching code; O(n) worst-case, optional lazy index can be added in future.</summary>
         public bool TryGetError(string code, out Error error)
         {
-            if (code is null) throw new ArgumentNullException(nameof(code));
+            code = Guard.AgainstNullOrWhitespace(code, nameof(code));
+
             if (IsFailure)
             {
                 foreach (var e in _errors)
@@ -375,15 +381,22 @@ namespace Zentient.Primitives
         /// when returning a result from an async method signature.</remarks>
         /// <returns>A <see cref="Task{Result}"/> that contains this result instance.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Task<Result<T>> ToTask() => IsSuccess ? System.Threading.Tasks.Task.FromResult(this) : System.Threading.Tasks.Task.FromResult(this);
+        public Task<Result<TValue>> ToTask() => IsSuccess ? System.Threading.Tasks.Task.FromResult(this) : System.Threading.Tasks.Task.FromResult(this);
 
         /// <summary>
         /// Creates a <see cref="ValueTask{Result}"/> that represents the asynchronous result of this operation.
         /// </summary>
         /// <returns>A <see cref="ValueTask{Result}"/> containing the result of the current operation.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ValueTask<Result<T>> ToValueTask() => new(this);
+        public ValueTask<Result<TValue>> ToValueTask() => new(this);
 
-        private string DebuggerDisplay => IsSuccess ? $"Succeed<{typeof(T).Name}>({_value})" : $"Fail<{typeof(T).Name}>({_errors.Length} errors)";
+        private string DebuggerDisplay
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return IsSuccess ? $"Succeed<{typeof(TValue).Name}>({_value})" : $"Fail<{typeof(TValue).Name}>({_errors.Length} errors)";
+            }
+        }
     }
 }

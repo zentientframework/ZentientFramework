@@ -8,10 +8,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Threading.Tasks;
-
 using Zentient.Metadata;
 
-namespace Zentient.Core
+namespace Zentient.Diagnostics
 {
     using System;
 
@@ -25,16 +24,4 @@ namespace Zentient.Core
         /// </summary>
         IDisposable Begin(string activityName);
     }
-}
-namespace Zentient.Results
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Collections.Immutable;
-    using System.Diagnostics;
-    using System.Linq;
-    using System.Threading.Tasks;
-
-    using Zentient.Metadata;
-
 }

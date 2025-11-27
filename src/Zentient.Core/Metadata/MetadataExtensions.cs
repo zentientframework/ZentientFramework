@@ -68,6 +68,7 @@ namespace Zentient.Metadata
         /// null.</param>
         /// <returns>A new metadata instance with the transformed value set for the specified key.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="meta"/>, <paramref name="key"/>, or <paramref name="transformer"/> is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IMetadata Change(this IMetadata meta, string key, Func<object?, object?> transformer)
         {
             if (meta is null) throw new ArgumentNullException(nameof(meta));

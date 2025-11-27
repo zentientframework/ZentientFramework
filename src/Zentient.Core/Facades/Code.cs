@@ -3,10 +3,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Codes
+namespace Zentient.Facades
 {
     using System;
     using System.Runtime.CompilerServices;
+    using Zentient.Codes;
     using Zentient.Exceptions;
     using Zentient.Metadata;
 

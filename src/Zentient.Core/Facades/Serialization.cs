@@ -3,13 +3,14 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Facades
 {
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
+    using Zentient.Abstractions;
 
     /// <summary>
     /// Serialization helpers and fallback implementations.

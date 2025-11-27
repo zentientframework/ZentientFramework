@@ -36,18 +36,7 @@ namespace Zentient
             var name = parameterName ?? nameof(value);
             ArgumentNullException.ThrowIfNull(value, name);
 
-            var span = value.AsSpan();
-            var len = span.Length;
-            if (len == 0) return value; // preserve reference for empty string
-            if (!char.IsWhiteSpace(span[0]) && !char.IsWhiteSpace(span[len - 1]))
-            {
-                // no trimming required
-                return value;
-            }
-
-            // allocate only when necessary
-            var trimmed = span.Trim();
-            return trimmed.Length == len ? value : trimmed.ToString();
+            return Trim(value);
         }
 
         /// <summary>
@@ -65,15 +54,7 @@ namespace Zentient
             var name = parameterName ?? nameof(value);
             ArgumentNullException.ThrowIfNull(value, name);
 
-            var span = value.AsSpan();
-            var trimmed = span.Trim();
-
-            if (trimmed.Length == 0)
-            {
-                throw new ArgumentException($"{name} cannot be empty or whitespace.", name);
-            }
-
-            return trimmed.Length == span.Length ? value : trimmed.ToString();
+            return TrimAndThrowIfWhitespace(value, name);
         }
 
         /// <summary>
@@ -277,6 +258,61 @@ namespace Zentient
             }
 
             return value;
+        }
+
+        // ---------------------------------------------------------------------
+        // String helpers
+        // ---------------------------------------------------------------------
+
+        /// <summary>
+        /// Removes all leading and trailing white-space characters from the specified string.
+        /// </summary>
+        /// <remarks>This method preserves the original string reference if no white-space is removed,
+        /// which can improve performance in scenarios where many strings do not require trimming.</remarks>
+        /// <param name="value">The string to trim. May be empty or contain leading and/or trailing white-space characters.</param>
+        /// <returns>A new string with all leading and trailing white-space characters removed. If no trimming is necessary,
+        /// returns the original string reference.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string Trim(string value)
+        {
+            var span = value.AsSpan();
+            var len = span.Length;
+
+            if (len == 0) return value; // preserve reference for empty string
+
+            if (!char.IsWhiteSpace(span[0]) && !char.IsWhiteSpace(span[len - 1]))
+            {
+                return value;
+            }
+
+            // allocate only when necessary
+            var trimmed = span.Trim();
+            return trimmed.Length == len ? value : trimmed.ToString();
+        }
+
+        /// <summary>
+        /// Trims leading and trailing whitespace from the specified string and throws an exception if the result is
+        /// empty or consists only of whitespace.
+        /// </summary>
+        /// <remarks>Use this method to ensure that a string parameter contains non-whitespace content
+        /// before further processing. The original string is returned if no trimming is necessary.</remarks>
+        /// <param name="value">The string to trim and validate. Cannot be null.</param>
+        /// <param name="name">The name of the parameter to include in the exception message if validation fails.</param>
+        /// <returns>A string containing the trimmed value if it is not empty or whitespace-only; otherwise, an exception is
+        /// thrown.</returns>
+        /// <exception cref="ArgumentException">Thrown if the trimmed value is empty or consists only of whitespace.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static string TrimAndThrowIfWhitespace(string value, string name)
+        {
+            var span = value.AsSpan();
+            var trimmed = span.Trim();
+
+            if (trimmed.Length == 0)
+            {
+                throw new ArgumentException($"{name} cannot be empty or whitespace.", name);
+            }
+
+            return trimmed.Length == span.Length ? value : trimmed.ToString();
         }
 
         // ---------------------------------------------------------------------

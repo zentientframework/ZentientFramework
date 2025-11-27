@@ -1,12 +1,12 @@
-// <copyright file="IRegistryObserver.cs" author="Zentient Framework Team">
+// <copyright file="IRegistryObserver{out TConcept}.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Zentient.Concepts;
-
-namespace Zentient.Core
+namespace Zentient.Diagnostics
 {
+    using Zentient.Concepts;
+
     /// <summary>
     /// Observer contract for registries. Intended for optional telemetry/auditing integration.
     /// Implementations should avoid throwing; exceptions from observers are considered best-effort and should be handled by callers.

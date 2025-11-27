@@ -9,6 +9,7 @@ namespace Zentient.Codes
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Runtime.CompilerServices;
+    using Zentient.Facades;
     using Zentient.Metadata;
 
     /// <summary>
@@ -68,7 +69,7 @@ namespace Zentient.Codes
             // Optimization: StringPool ensures only one instance of the key string exists globally
             Key = StringPool.Get(key);
             Definition = definition;
-            Metadata = metadata ?? Zentient.Metadata.Metadata.Empty;
+            Metadata = metadata ?? Facades.Metadata.Empty;
             DisplayName = displayName;
 
             _fingerprint = ComputeDefinitionFingerprint(definition);
@@ -149,7 +150,7 @@ namespace Zentient.Codes
             var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
             // 4. Create and cache the canonical *code* instance
-            var created = new Code<TDefinition>(key, canonicalDef, metadata ?? Zentient.Metadata.Metadata.Empty, displayName);
+            var created = new Code<TDefinition>(key, canonicalDef, metadata ?? Facades.Metadata.Empty, displayName);
             var added = cache.AddOrGet<TDefinition>(created.Key, _ => created);
 
             // 5. Fire events based on whether we won the race (ReferenceEquals)
@@ -194,7 +195,7 @@ namespace Zentient.Codes
             TDefinition canonicalDefinition = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
             // Optimization: factory delegate for AddOrGet minimizes allocations on cache miss
-            var added = Cache.AddOrGet<TDefinition>(key, _ => new Code<TDefinition>(key, canonicalDefinition, Zentient.Metadata.Metadata.Empty, null));
+            var added = Cache.AddOrGet<TDefinition>(key, _ => new Code<TDefinition>(key, canonicalDefinition, Facades.Metadata.Empty, null));
             CodeRegistry.OnCodeCreated(added);
 
             return added;
@@ -213,7 +214,7 @@ namespace Zentient.Codes
         {
             try
             {
-                code = GetOrCreate(key, definition, Zentient.Metadata.Metadata.Empty, null, null, allowOverride);
+                code = GetOrCreate(key, definition, Facades.Metadata.Empty, null, null, allowOverride);
                 return true;
             }
             catch
@@ -247,7 +248,7 @@ namespace Zentient.Codes
             var fp = ComputeDefinitionFingerprint(definition) ?? string.Empty;
             var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
-            var created = new Code<TDefinition>(key, canonicalDef, Zentient.Metadata.Metadata.Empty, null);
+            var created = new Code<TDefinition>(key, canonicalDef, Facades.Metadata.Empty, null);
 
             // Use AddOrGet to handle the race condition
             code = Cache.AddOrGet<TDefinition>(created.Key, _ => created);

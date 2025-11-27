@@ -3,11 +3,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Concepts
+namespace Zentient.Facades
 {
     using System;
     using System.Diagnostics;
     using System.Runtime.CompilerServices;
+    using Zentient.Concepts;
     using Zentient.Metadata;
 
     /// <summary>
@@ -30,7 +31,7 @@ namespace Zentient.Concepts
         /// <returns>An <see cref="IConcept"/> representing the newly created concept with the specified properties.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IConcept Create(string key, string displayName, string? description = null, IMetadata? tags = null)
-            => new InternalConcept(Guid.NewGuid(), key, displayName, description, tags ?? Zentient.Metadata.Metadata.Empty, validate: true);
+            => new InternalConcept(Guid.NewGuid(), key, displayName, description, tags ?? Metadata.Empty, validate: true);
 
         /// <summary>
         /// Creates a new concept instance with a unique identifier, key, display name, and optional metadata.
@@ -43,7 +44,7 @@ namespace Zentient.Concepts
         /// <returns>An <see cref="IConcept"/> instance representing the newly created concept with the specified properties.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IConcept CreateIdentifiable(Guid guidId, string key, string displayName, string? description = null, IMetadata? tags = null)
-            => new InternalConcept(guidId, key, displayName, description, tags ?? Zentient.Metadata.Metadata.Empty, validate: true);
+            => new InternalConcept(guidId, key, displayName, description, tags ?? Metadata.Empty, validate: true);
 
 
         /// <summary>
@@ -66,7 +67,7 @@ namespace Zentient.Concepts
             /// This constructor is primarily for use by the serialization infrastructure.
             /// </remarks>
             [Obsolete("Parameterless ctor intended only for serializers.", true)]
-            public InternalConcept() : this(Guid.Empty, string.Empty, string.Empty, null, Zentient.Metadata.Metadata.Empty) { }
+            public InternalConcept() : this(Guid.Empty, string.Empty, string.Empty, null, Metadata.Empty) { }
 
             /// <summary>
             /// Initializes a new instance of the InternalConcept class using the specified key, display name,

@@ -12,6 +12,7 @@ namespace Zentient.Codes
 {
     using System;
     using System.Runtime.CompilerServices;
+    using Zentient.Facades;
     using Zentient.Metadata;
 
     // --- Builder ------------------------------------------------------------

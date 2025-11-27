@@ -3,7 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+using System.Runtime.CompilerServices;
+
+namespace Zentient.Primitives
 {
     /// <summary>
     /// Represents "void" in functional constructs.
@@ -14,6 +16,13 @@ namespace Zentient.Core
         /// <summary>
         /// Gets the default value of the <see cref="Unit"/> type.
         /// </summary>
-        public static Unit Value => default;
+        public static Unit Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return default;
+            }
+        }
     }
 }

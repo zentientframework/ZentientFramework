@@ -3,12 +3,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Primitives
+namespace Zentient.Facades
 {
     using System;
     using System.Collections.Immutable;
     using System.Runtime.CompilerServices;
     using Zentient.Errors;
+    using Zentient.Primitives;
 
     /// <summary>
     /// Provides static factory methods for creating successful or failed result instances with associated values or
@@ -18,7 +19,7 @@ namespace Zentient.Primitives
     /// either successful operations with a value, or failed operations with one or more errors. These methods enforce
     /// that failed results must include at least one error, ensuring that error information is always available for
     /// failure cases.</remarks>
-    public static class Result
+    public static class Results
     {
         /// <summary>
         /// Creates a successful result containing the specified value.

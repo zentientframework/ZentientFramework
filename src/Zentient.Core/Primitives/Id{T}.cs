@@ -3,12 +3,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Primitives
 {
     using System;
     using System.ComponentModel;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// A strongly-typed, phantom-typed identifier.
@@ -29,9 +30,7 @@ namespace Zentient.Core
         /// characters.</param>
         internal Id(string value)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(value, nameof(value));
-            Value = value;
-
+            Value = Guard.AgainstNullOrWhitespace(value, nameof(value));
         }
 
         /// <summary>Generates a new collision-resistant ID (UUIDv4 format).</summary>
@@ -47,6 +46,7 @@ namespace Zentient.Core
         /// current culture.</param>
         /// <returns>An <see cref="Id{T}"/> instance that corresponds to the parsed value.</returns>
         /// <exception cref="FormatException">Thrown when <paramref name="value"/> is not in a valid format for an ID of type <typeparamref name="T"/>.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Id<T> Parse(string value, IFormatProvider? provider = null)
         {
             if (!TryParse(value, provider, out var result))
@@ -76,7 +76,7 @@ namespace Zentient.Core
                 result = default;
                 return false;
             }
-            // Normalization: Trim whitespace
+
             result = new Id<T>(value.Trim());
             return true;
         }
@@ -89,7 +89,8 @@ namespace Zentient.Core
         /// <param name="provider">An object that supplies culture-specific formatting information, or <see langword="null"/> to use the
         /// current culture.</param>
         /// <returns>An <see cref="Id{T}"/> instance equivalent to the value contained in <paramref name="value"/>.</returns>
-        public static Id<T> Parse(ReadOnlySpan<char> value, IFormatProvider? provider) => Parse(value.ToString(), provider);
+        public static Id<T> Parse(ReadOnlySpan<char> value, IFormatProvider? provider)
+            => Parse(value.ToString(), provider);
 
         /// <summary>
         /// Attempts to parse the specified character span into an <see cref="Id{T}"/> instance.
@@ -105,29 +106,25 @@ namespace Zentient.Core
         /// Returns the string representation of the current object.
         /// </summary>
         /// <returns>The value of the object as a string.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override string ToString() => Value;
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int CompareTo(Id<T> other) => string.Compare(Value, other.Value, StringComparison.Ordinal);
 
         /// <summary>
         /// Converts the specified <see cref="Id{T}"/> instance to its underlying string value.
         /// </summary>
         /// <param name="id">The <see cref="Id{T}"/> instance to convert to a string.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static explicit operator string(Id<T> id) => id.Value;
 
         /// <summary>
         /// Converts a string value to an instance of the <see cref="Id{T}"/> type.
         /// </summary>
         /// <param name="value">The string value to convert. Cannot be <see langword="null"/>.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator Id<T>(string value) => new(value ?? throw new ArgumentNullException(nameof(value)));
     }
-}
-namespace Zentient.ComponentModel
-{
-    using System;
-    using System.ComponentModel;
-    using System.Globalization;
-
-    using Zentient.Core;
 }

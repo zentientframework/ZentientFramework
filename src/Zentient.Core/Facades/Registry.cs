@@ -3,9 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Facades
 {
     using System;
+    using System.Collections;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
@@ -13,6 +14,8 @@ namespace Zentient.Core
     using System.Threading;
     using System.Threading.Tasks;
     using Zentient.Concepts;
+    using Zentient.Diagnostics;
+    using Zentient.Registries;
 
     /// <summary>
     /// Provides factory methods for creating registry instances for managing concept objects in memory.
@@ -71,14 +74,14 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public bool TryGetById(string id, out TConcept? item)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                id = Guard.AgainstNullOrWhitespace(id, nameof(id));
                 return _byId.TryGetValue(id, out item);
             }
 
             /// <inheritdoc/>
             public bool TryGetById(string id, out TConcept? item, out string? reason)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                id = Guard.AgainstNullOrWhitespace(id, nameof(id));
                 reason = null;
                 var found = _byId.TryGetValue(id, out item);
                 if (!found) reason = $"No item found with id '{id}'.";
@@ -88,7 +91,7 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public bool TryGetByName(string name, out TConcept? item)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+                name = Guard.AgainstNullOrWhitespace(name, nameof(name));
 
                 if (_nameToId.TryGetValue(name, out var id) && _byId.TryGetValue(id, out var direct))
                 {
@@ -124,7 +127,7 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public bool TryGetByName(string name, out TConcept? item, out string? reason)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(name, nameof(name));
+                name = Guard.AgainstNullOrWhitespace(name, nameof(name));
                 reason = null;
 
                 if (_nameToId.TryGetValue(name, out var id) && _byId.TryGetValue(id, out var direct))
@@ -148,7 +151,7 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item)
             {
-                ArgumentNullException.ThrowIfNull(predicate);
+                Guard.AgainstNull(predicate, nameof(predicate));
                 item = _byId.Values.FirstOrDefault(v => predicate(v));
                 return item != null;
             }
@@ -156,21 +159,16 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item, out string? reason)
             {
-                ArgumentNullException.ThrowIfNull(predicate);
+                Guard.AgainstNull(predicate, nameof(predicate));
                 item = _byId.Values.FirstOrDefault(predicate);
                 reason = item == null ? "No item found matching the specified predicate." : null;
                 return item != null;
             }
 
             /// <inheritdoc/>
-            IEnumerable<TConcept> IReadOnlyRegistry<TConcept>.ListAll() => _byId.Values.ToArray();
-
-            /// <inheritdoc/>
             public ValueTask<RegistryResult> TryRegisterAsync(TConcept concept, CancellationToken token = default)
             {
-                ArgumentNullException.ThrowIfNull(concept, nameof(concept));
-                ArgumentException.ThrowIfNullOrWhiteSpace(concept.Key, nameof(concept.Key));
-                ArgumentException.ThrowIfNullOrWhiteSpace(concept.DisplayName, nameof(concept.DisplayName));
+                Guard.AgainstNull(concept, nameof(concept));
                 token.ThrowIfCancellationRequested();
 
                 var added = _byId.TryAdd(concept.Key, concept);
@@ -205,7 +203,7 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public ValueTask<RegistryRemoveResult> TryRemoveAsync(string id, CancellationToken token = default)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
+                id = Guard.AgainstNullOrWhitespace(id, nameof(id));
                 token.ThrowIfCancellationRequested();
 
                 if (_byId.TryRemove(id, out var removed))
@@ -225,8 +223,8 @@ namespace Zentient.Core
             /// <inheritdoc/>
             public async ValueTask<TConcept> GetOrAddAsync(string id, Func<CancellationToken, Task<TConcept>> factory, CancellationToken token = default)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(id, nameof(id));
-                ArgumentNullException.ThrowIfNull(factory, nameof(factory));
+                id = Guard.AgainstNullOrWhitespace(id, nameof(id));
+                factory = Guard.AgainstNull(factory, nameof(factory));
                 token.ThrowIfCancellationRequested();
 
                 if (_byId.TryGetValue(id, out var exist))
@@ -253,7 +251,10 @@ namespace Zentient.Core
 
             private async ValueTask<TConcept> FactoryWrapperAsync(string id, Func<CancellationToken, Task<TConcept>> factory, CancellationToken token)
             {
+                id = Guard.AgainstNullOrWhitespace(id, nameof(id));
+                factory = Guard.AgainstNull(factory, nameof(factory));
                 IDisposable? scope = null;
+
                 try
                 {
                     scope = _trace?.Begin("registry.getoradd");
@@ -283,6 +284,20 @@ namespace Zentient.Core
                     scope?.Dispose();
                 }
             }
+
+            /// <inheritdoc/>
+            public IEnumerator<TConcept> GetEnumerator() => _byId.Values.GetEnumerator();
+
+            /// <inheritdoc/>
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            /// <inheritdoc/>
+            public void OnRegistered(TConcept item)
+                => _observer?.OnRegistered(item);
+
+            /// <inheritdoc/>
+            public void OnRemoved(string id)
+                => _observer?.OnRemoved(id);
         }
     }
 }

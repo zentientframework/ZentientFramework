@@ -16,7 +16,5 @@ namespace Zentient.Codes
         /// Gets the canonical definition instance for this code.
         /// </summary>
         TDefinition Definition { get; }
-
-        CodeBuilder<TDefinition> ToBuilder();
     }
 }

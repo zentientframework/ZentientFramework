@@ -6,8 +6,11 @@
 namespace Zentient.Errors
 {
     using System;
+    using System.Diagnostics;
     using System.Runtime.CompilerServices;
+    using Zentient;
     using Zentient.Codes;
+    using Zentient.Facades;
     using Zentient.Metadata;
 
     /// <summary>
@@ -15,6 +18,7 @@ namespace Zentient.Errors
     /// This type is intentionally serializer-agnostic: adapters and transport layers decide on
     /// how errors are encoded for persistence or transport.
     /// </summary>
+    [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public sealed record Error
     {
         /// <summary>
@@ -67,12 +71,14 @@ namespace Zentient.Errors
         /// <exception cref="ArgumentException">Thrown when <paramref name="codeKey"/> or <paramref name="message"/> is null/empty/whitespace.</exception>
         internal Error(string codeKey, string message, Severity severity, IMetadata diagnosticMetadata, Exception? exception, ICode<ICodeDefinition>? code)
         {
-            if (string.IsNullOrWhiteSpace(codeKey)) throw new ArgumentException("CodeKey must be non-empty.", nameof(codeKey));
-            if (string.IsNullOrWhiteSpace(message)) throw new ArgumentException("Message must be non-empty.", nameof(message));
-            CodeKey = codeKey;
-            Message = message;
-            Severity = severity;
-            DiagnosticMetadata = diagnosticMetadata ?? Zentient.Metadata.Metadata.Empty;
+            // Use centralized guard helpers for consistent DX and minimal duplication.
+            CodeKey = Guard.AgainstNullOrWhitespace(codeKey, nameof(codeKey));
+            Message = Guard.AgainstNullOrWhitespace(message, nameof(message));
+            Severity = Guard.AgainstInvalidEnum(severity, nameof(severity));
+
+            DiagnosticMetadata = diagnosticMetadata ?? Metadata.Empty;
+            Exception = exception;
+            DiagnosticMetadata = diagnosticMetadata ?? Metadata.Empty;
             Exception = exception;
             Code = code;
         }
@@ -148,7 +154,10 @@ namespace Zentient.Errors
         /// <summary>
         /// Returns a brief string representation of the error for logging.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override string ToString() => $"[{CodeKey}] {Message}";
+
+        private string DebuggerDisplay => ToString();
 
         // ======================================================================
         // Builder
@@ -166,7 +175,7 @@ namespace Zentient.Errors
             private Exception? _exception;
 
             // Lazy-initialized metadata builder to reduce allocation overhead on simple errors
-            private Zentient.Metadata.Metadata.Builder? _diagnosticBuilder;
+            private Metadata.Builder? _diagnosticBuilder;
 
             private ICode<ICodeDefinition>? _typedCode;
 
@@ -178,11 +187,8 @@ namespace Zentient.Errors
             /// <param name="message">Initial human-readable message. Must be non-null.</param>
             internal Builder(string codeKey, string message)
             {
-                if (string.IsNullOrWhiteSpace(codeKey))
-                    throw new ArgumentException("Code key must be non-empty.", nameof(codeKey));
-
-                _codeKey = codeKey;
-                _message = message ?? throw new ArgumentNullException(nameof(message));
+                _codeKey = Guard.AgainstNullOrWhitespace(codeKey, nameof(codeKey));
+                _message = Guard.AgainstNullOrWhitespace(message, nameof(message));
                 _severity = Severity.Fatal; // Default to safe/conservative severity
             }
 
@@ -193,7 +199,8 @@ namespace Zentient.Errors
             /// <returns>The builder instance.</returns>
             public Builder WithMessage(string message)
             {
-                _message = message ?? throw new ArgumentNullException(nameof(message));
+                message = Guard.AgainstNullOrWhitespace(message, nameof(message));
+                _message = Guard.AgainstNullOrWhitespace(message, nameof(message));
                 return this;
             }
 
@@ -204,7 +211,7 @@ namespace Zentient.Errors
             /// <returns>The builder instance.</returns>
             public Builder WithSeverity(Severity severity)
             {
-                _severity = severity;
+                _severity = Guard.AgainstInvalidEnum(severity, nameof(severity));
                 return this;
             }
 
@@ -223,13 +230,15 @@ namespace Zentient.Errors
             /// Configures diagnostic metadata using a mutable metadata builder.
             /// The provided delegate is invoked immediately and the result is captured when <see cref="Build"/> is called.
             /// </summary>
-            /// <param name="configure">Action that configures a <see cref="Zentient.Metadata.Metadata.Builder"/>.</param>
+
+            /// <param name="configure">Action that configures a <see cref="Metadata.Builder"/>.</param>
             /// <returns>The builder instance.</returns>
-            public Builder WithMetadata(Action<Zentient.Metadata.Metadata.Builder> configure)
+            public Builder WithMetadata(Action<Metadata.Builder> configure)
             {
                 if (configure is null) return this;
 
-                _diagnosticBuilder ??= Zentient.Metadata.Metadata.NewBuilder();
+
+                _diagnosticBuilder ??= Metadata.NewBuilder();
                 configure(_diagnosticBuilder);
                 return this;
             }
@@ -242,8 +251,7 @@ namespace Zentient.Errors
             /// <returns>The builder instance.</returns>
             public Builder WithTypedCode(ICode<ICodeDefinition> code)
             {
-                ArgumentNullException.ThrowIfNull(code);
-                _typedCode = code;
+                _typedCode = Guard.AgainstNull(code, nameof(code));
                 _codeKey = code.Key; // The typed code is authoritative.
                 return this;
             }
@@ -265,6 +273,9 @@ namespace Zentient.Errors
                 string? displayName = null)
                 where TDefinition : ICodeDefinition
             {
+                key = Guard.AgainstNullOrWhitespace(key, nameof(key));
+                definition = Guard.AgainstNull(definition, nameof(definition));
+
                 // Use fast-path when no metadata/displayName provided
                 if (metadata is null && displayName is null)
                 {
@@ -272,7 +283,11 @@ namespace Zentient.Errors
                     return WithTypedCode((ICode<ICodeDefinition>)t);
                 }
 
-                var typed = Code<TDefinition>.GetOrCreate(key, definition, metadata, displayName);
+                var typed = Code<TDefinition>.GetOrCreate(
+                    key,
+                    definition,
+                    Guard.AgainstNull(metadata, nameof(metadata)),
+                    Guard.AgainstNull(displayName, nameof(displayName)));
                 return WithTypedCode((ICode<ICodeDefinition>)typed);
             }
 
@@ -282,7 +297,8 @@ namespace Zentient.Errors
             /// <returns>A constructed <see cref="Error"/>.</returns>
             public Error Build()
             {
-                var diagnostic = _diagnosticBuilder?.Build() ?? Zentient.Metadata.Metadata.Empty;
+
+                var diagnostic = _diagnosticBuilder?.Build() ?? Metadata.Empty;
 
                 return new Error(
                     _codeKey,

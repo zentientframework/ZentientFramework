@@ -1,13 +1,14 @@
-// <copyright file="IReadOnlyRegistry.cs" author="Zentient Framework Team">
+// <copyright file="IReadOnlyRegistry{out TConcept}.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Registries
 {
     using System;
     using System.Collections.Generic;
     using Zentient.Concepts;
+    using Zentient.Diagnostics;
 
     /// <summary>
     /// Read-only registry contract. Provides deterministic lookup by id and by name.
@@ -15,7 +16,7 @@ namespace Zentient.Core
     /// may impose stricter uniqueness constraints.
     /// </summary>
     /// <typeparam name="TConcept">The concept type stored in the registry.</typeparam>
-    public interface IReadOnlyRegistry<TConcept>
+    public interface IReadOnlyRegistry<TConcept> : IEnumerable<TConcept>, IRegistryObserver<TConcept>
         where TConcept : IConcept
     {
         /// <summary>
@@ -59,11 +60,5 @@ namespace Zentient.Core
         /// <see langword="null"/>.</param>
         /// <returns><see langword="true"/> if a matching item was found; otherwise, <see langword="false"/>.</returns>
         bool TryGetByPredicate(Func<TConcept, bool> predicate, out TConcept? item, out string? reason);
-
-        /// <summary>
-        /// Lists all items currently known by the registry. Implementations may return a snapshot.
-        /// </summary>
-        /// <returns>An enumerable of items. The enumeration may represent a snapshot and need not reflect concurrent modifications.</returns>
-        IEnumerable<TConcept> ListAll();
     }
 }

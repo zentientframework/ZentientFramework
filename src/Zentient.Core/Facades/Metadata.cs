@@ -1,9 +1,9 @@
-﻿// <copyright file="Metadata.Metadata.cs" author="Zentient Framework Team">
+﻿// <copyright file="Metadata.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Metadata
+namespace Zentient.Facades
 {
     using System;
     using System.Collections;
@@ -13,6 +13,7 @@ namespace Zentient.Metadata
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Runtime.CompilerServices;
+    using Zentient.Metadata;
 
     /// <summary>
     /// Static factory and helpers for <see cref="IMetadata"/> instances.
@@ -65,8 +66,8 @@ namespace Zentient.Metadata
                     IMetadata incoming,
                     Func<string, object?, object?, object?>? conflictResolver = null)
         {
-            if (current is null) throw new ArgumentNullException(nameof(current));
-            if (incoming is null) throw new ArgumentNullException(nameof(incoming));
+            if (current is null) return incoming;
+            if (incoming is null) return current;
             if (current.Count == 0) return incoming;
             if (incoming.Count == 0) return current;
 
@@ -127,7 +128,7 @@ namespace Zentient.Metadata
             /// <exception cref="ArgumentNullException">Thrown if <paramref name="originalMetadata"/> is null.</exception>
             public Builder(IMetadata originalMetadata)
             {
-                if (originalMetadata is null) throw new ArgumentNullException(nameof(originalMetadata));
+                Guard.AgainstNull(originalMetadata, nameof(originalMetadata));
                 _staging = new Dictionary<string, object?>(originalMetadata.Count, StringComparer.Ordinal);
                 foreach (var kv in originalMetadata) _staging[kv.Key] = kv.Value;
             }
@@ -141,7 +142,7 @@ namespace Zentient.Metadata
             /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is null.</exception>
             public Builder Set(string key, object? value)
             {
-                if (key is null) throw new ArgumentNullException(nameof(key));
+                key = Guard.AgainstNullOrWhitespace(key, nameof(key));
                 _staging[key] = value;
                 return this;
             }
@@ -165,7 +166,7 @@ namespace Zentient.Metadata
             /// <returns>The same builder instance.</returns>
             public Builder Remove(string key)
             {
-                if (key is null) return this;
+                key = Guard.Trim(key);
                 _staging.Remove(key);
                 return this;
             }
@@ -209,16 +210,21 @@ namespace Zentient.Metadata
                 int count = _staging.Count;
                 if (count == 0) return Empty;
 
-                if (count <= LinearThreshold)
+                if (count > LinearThreshold)
                 {
-                    // Deterministic ordering: sort keys
-                    var arr = new KeyValuePair<string, object?>[count];
-                    int i = 0;
-                    foreach (var kv in _staging.OrderBy(k => k.Key, StringComparer.Ordinal)) arr[i++] = kv;
-                    return new LinearMetadata(arr);
+                    return new HashedMetadata(_staging.ToImmutableDictionary(StringComparer.Ordinal));
                 }
 
-                return new HashedMetadata(_staging.ToImmutableDictionary(StringComparer.Ordinal));
+                // Deterministic ordering: sort keys
+                var arr = new KeyValuePair<string, object?>[count];
+                int i = 0;
+
+                foreach (var kv in _staging.OrderBy(k => k.Key, StringComparer.Ordinal))
+                {
+                    arr[i++] = kv;
+                }
+
+                return new LinearMetadata(arr);
             }
 
             /// <summary>
@@ -229,9 +235,15 @@ namespace Zentient.Metadata
             /// <exception cref="ArgumentNullException">Thrown when <paramref name="snapshot"/> is null.</exception>
             public static Builder From(IMetadata snapshot)
             {
-                if (snapshot is null) throw new ArgumentNullException(nameof(snapshot));
+                Guard.AgainstNull(snapshot, nameof(snapshot));
+
                 var b = new Builder(snapshot.Count);
-                foreach (var kv in snapshot) b._staging[kv.Key] = kv.Value;
+
+                foreach (var kv in snapshot)
+                {
+                    b._staging[kv.Key] = kv.Value;
+                }
+
                 return b;
             }
         }
@@ -296,6 +308,7 @@ namespace Zentient.Metadata
             /// <returns>A merged <see cref="IMetadata"/> snapshot.</returns>
             public IMetadata SetRange(IEnumerable<KeyValuePair<string, object?>> items)
             {
+                items = items ?? Enumerable.Empty<KeyValuePair<string, object?>>();
                 var b = Builder.From(this);
                 b.SetRange(items);
                 return b.Build();
@@ -311,8 +324,13 @@ namespace Zentient.Metadata
             /// <returns><see langword="true"/> when conversion succeeds; otherwise <see langword="false"/>.</returns>
             public bool TryGet<T>(string key, [MaybeNullWhen(false)] out T value)
             {
-                if (!TryGetValue(key, out var raw)) { value = default; return false; }
-                return TypeConverter.TryConvert(raw, out value);
+                if (TryGetValue(key, out var raw))
+                {
+                    return TypeConverter.TryConvert(raw, out value);
+                }
+
+                value = default;
+                return false;
             }
 
             /// <summary>
@@ -322,29 +340,53 @@ namespace Zentient.Metadata
             /// <param name="key">Metadata key.</param>
             /// <param name="defaultValue">Fallback value when key is absent or conversion fails.</param>
             /// <returns>Converted value or <paramref name="defaultValue"/>.</returns>
-            public T? GetOrDefault<T>(string key, T? defaultValue = default) => TryGet<T>(key, out var v) ? v : defaultValue;
+            public T? GetOrDefault<T>(string key, T? defaultValue = default)
+                => TryGet<T>(key, out var v) ? v : defaultValue;
+
+            /// <summary>
+            /// Creates a new builder instance initialized with the current object's values.
+            /// </summary>
+            /// <returns>A <see cref="Builder"/> that can be used to modify and construct a new instance based on the current
+            /// object's state.</returns>
             public abstract Builder ToBuilder();
         }
 
         /// <summary>
-        /// Compact empty metadata representation. Returned by <see cref="Empty"/>.
+        /// Represents an immutable, empty metadata collection.
         /// </summary>
+        /// <remarks>This type provides a singleton implementation of a metadata collection with no
+        /// entries. All retrieval operations return default values, and modification methods return new metadata
+        /// instances or the same empty instance as appropriate. This class is typically used to represent the absence
+        /// of metadata in scenarios where a non-null metadata object is required.</remarks>
         private sealed class EmptyMetadata : MetadataBase
         {
+            /// <inheritdoc />
             public override int Count => 0;
+
+            /// <inheritdoc />
             public override IEnumerable<string> Keys => Enumerable.Empty<string>();
+
+            /// <inheritdoc />
             public override IEnumerable<object?> Values => Enumerable.Empty<object?>();
+
+            /// <inheritdoc />
             public override bool TryGetValue(string key, [MaybeNullWhen(false)] out object? value) { value = null; return false; }
+
+            /// <inheritdoc />
             public override IEnumerator<KeyValuePair<string, object?>> GetEnumerator() => Enumerable.Empty<KeyValuePair<string, object?>>().GetEnumerator();
 
-            public override IMetadata Set(string key, object? value) => new LinearMetadata(new[] { new KeyValuePair<string, object?>(key, value) });
+            /// <inheritdoc />
+            public override IMetadata Set(string key, object? value)
+                => new LinearMetadata(new[] { new KeyValuePair<string, object?>(key, value) });
+
+            /// <inheritdoc />
             public override IMetadata Remove(string key) => this;
+
+            /// <inheritdoc />
             public override IMetadata With(string key, object? value) => Set(key, value);
 
-            public override Builder ToBuilder()
-            {
-                return new Builder().SetRange(this);
-            }
+            /// <inheritdoc />
+            public override Builder ToBuilder() => new Builder().SetRange(this);
         }
 
         /// <summary>
@@ -355,18 +397,33 @@ namespace Zentient.Metadata
         private sealed class LinearMetadata : MetadataBase
         {
             private readonly KeyValuePair<string, object?>[] _items;
-            public LinearMetadata(KeyValuePair<string, object?>[] items) => _items = items ?? throw new ArgumentNullException(nameof(items));
 
+            public LinearMetadata(KeyValuePair<string, object?>[] items)
+            {
+                _items = Guard.AgainstNull(items, nameof(items));
+            }
+
+            /// <inheritdoc />
             public override int Count => _items.Length;
+
+            /// <inheritdoc />
             public override IEnumerable<string> Keys => _items.Select(x => x.Key);
+
+            /// <inheritdoc />
             public override IEnumerable<object?> Values => _items.Select(x => x.Value);
+
+            /// <inheritdoc />
             public override IEnumerator<KeyValuePair<string, object?>> GetEnumerator() => ((IEnumerable<KeyValuePair<string, object?>>)_items).GetEnumerator();
 
             /// <inheritdoc />
             public override bool TryGetValue(string key, [MaybeNullWhen(false)] out object? value)
             {
-                if (key is null) { value = null; return false; }
-                // Linear scan for small array (cache-friendly)
+                if (key is null)
+                {
+                    value = null;
+                    return false;
+                }
+
                 for (int i = 0; i < _items.Length; i++)
                 {
                     if (string.Equals(_items[i].Key, key, StringComparison.Ordinal))
@@ -375,6 +432,7 @@ namespace Zentient.Metadata
                         return true;
                     }
                 }
+
                 value = null;
                 return false;
             }
@@ -388,7 +446,7 @@ namespace Zentient.Metadata
             /// <returns>New metadata snapshot with the change applied.</returns>
             public override IMetadata Set(string key, object? value)
             {
-                if (key is null) throw new ArgumentNullException(nameof(key));
+                key = Guard.AgainstNullOrWhitespace(key, nameof(key));
 
                 // Try update in-place by cloning array only when needed (fast path)
                 for (int i = 0; i < _items.Length; i++)
@@ -428,29 +486,45 @@ namespace Zentient.Metadata
             /// <returns>New snapshot with the key removed.</returns>
             public override IMetadata Remove(string key)
             {
-                if (key is null) return this;
+                Guard.AgainstNull(key, nameof(key));
+                key = Guard.Trim(key);
 
                 int idx = -1;
+
                 for (int i = 0; i < _items.Length; i++)
                 {
                     if (string.Equals(_items[i].Key, key, StringComparison.Ordinal)) { idx = i; break; }
                 }
-                if (idx == -1) return this;
-                if (_items.Length == 1) return Empty;
+
+                if (idx == -1)
+                {
+                    return this;
+                }
+
+                if (_items.Length == 1)
+                {
+                    return Empty;
+                }
 
                 var shrunk = new KeyValuePair<string, object?>[_items.Length - 1];
-                if (idx > 0) Array.Copy(_items, 0, shrunk, 0, idx);
-                if (idx < _items.Length - 1) Array.Copy(_items, idx + 1, shrunk, idx, _items.Length - idx - 1);
+                if (idx > 0)
+                {
+                    Array.Copy(_items, 0, shrunk, 0, idx);
+                }
+
+                if (idx < _items.Length - 1)
+                {
+                    Array.Copy(_items, idx + 1, shrunk, idx, _items.Length - idx - 1);
+                }
+
                 return new LinearMetadata(shrunk);
             }
 
             /// <inheritdoc/>
             public override IMetadata With(string key, object? value) => Set(key, value);
 
-            public override Builder ToBuilder()
-            {
-                return new Builder(this);
-            }
+            /// <inheritdoc/>
+            public override Builder ToBuilder() => new Builder(this);
         }
 
         /// <summary>
@@ -461,18 +535,38 @@ namespace Zentient.Metadata
         private sealed class HashedMetadata : MetadataBase
         {
             private readonly ImmutableDictionary<string, object?> _store;
-            public HashedMetadata(ImmutableDictionary<string, object?> store) => _store = store ?? throw new ArgumentNullException(nameof(store));
 
+            /// <summary>
+            /// Initializes a new instance of the HashedMetadata class using the specified metadata store.
+            /// </summary>
+            /// <param name="store">An immutable dictionary containing key-value pairs to be used as the metadata store. Cannot be null.</param>
+            /// <exception cref="ArgumentNullException">Thrown if <paramref name="store"/> is null.</exception>
+            public HashedMetadata(ImmutableDictionary<string, object?> store)
+            {
+                _store = Guard.AgainstNull(store, nameof(store));
+            }
+
+            /// <inheritdoc />
             public override int Count => _store.Count;
+
+            /// <inheritdoc />
             public override IEnumerable<string> Keys => _store.Keys;
+
+            /// <inheritdoc />
             public override IEnumerable<object?> Values => _store.Values;
-            public override IEnumerator<KeyValuePair<string, object?>> GetEnumerator() => _store.GetEnumerator();
-            public override bool TryGetValue(string key, [MaybeNullWhen(false)] out object? value) => _store.TryGetValue(key, out value);
+
+            /// <inheritdoc />
+            public override IEnumerator<KeyValuePair<string, object?>> GetEnumerator()
+                => _store.GetEnumerator();
+
+            /// <inheritdoc />
+            public override bool TryGetValue(string key, [MaybeNullWhen(false)] out object? value)
+                => _store.TryGetValue(key, out value);
 
             /// <inheritdoc />
             public override IMetadata Set(string key, object? value)
             {
-                if (key is null) throw new ArgumentNullException(nameof(key));
+                key = Guard.AgainstNullOrWhitespace(key, nameof(key));
                 var n = _store.SetItem(key, value);
                 return new HashedMetadata(n);
             }
@@ -480,16 +574,29 @@ namespace Zentient.Metadata
             /// <inheritdoc />
             public override IMetadata Remove(string key)
             {
-                if (key is null) return this;
+                if (key is null)
+                {
+                    return this;
+                }
+
                 var n = _store.Remove(key);
-                if (n.IsEmpty) return Empty;
+
+                if (n.IsEmpty)
+                {
+                    return Empty;
+                }
 
                 if (n.Count <= LinearThreshold)
                 {
                     // Downsize to LinearMetadata (deterministic order)
                     var arr = n.OrderBy(k => k.Key, StringComparer.Ordinal).ToArray();
                     var kvarr = new KeyValuePair<string, object?>[arr.Length];
-                    for (int i = 0; i < arr.Length; i++) kvarr[i] = arr[i];
+
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        kvarr[i] = arr[i];
+                    }
+
                     return new LinearMetadata(kvarr);
                 }
 

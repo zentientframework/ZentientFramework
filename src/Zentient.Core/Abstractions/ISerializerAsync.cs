@@ -1,35 +1,39 @@
-// <copyright file="ISerializer.cs" author="Zentient Framework Team">
+// <copyright file="ISerializerAsync.cs" author="Zentient Framework Team">
 // (c) 2025 Zentient Framework Team. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Abstractions
 {
     using System;
+    using System.Threading;
+    using System.Threading.Tasks;
 
     /// <summary>
-    /// Serializer contract used by higher-level packages. Implementations are free to choose the format.
-    /// Absence of a serializer implementation is a configuration error (unrecoverable) and may throw.
+    /// Async serializer contract.
     /// </summary>
-    public interface ISerializer
+    public interface ISerializerAsync
     {
         /// <summary>
-        /// Serialize the provided item to a string payload.
+        /// Asynchronously serializes the specified item to a string representation.
+        /// The implementation may throw for unrecoverable configuration errors.
         /// </summary>
         /// <typeparam name="T">The type of the item to serialize.</typeparam>
         /// <param name="item">The item to serialize.</param>
+        /// <param name="token">Optional cancellation token.</param>
         /// <returns>A string representation of the serialized item.</returns>
         /// <exception cref="NotSupportedException">Thrown when no serializer implementation is available.</exception>
-        string Serialize<T>(T item);
+        Task<string> SerializeAsync<T>(T item, CancellationToken token = default);
 
         /// <summary>
-        /// Deserialize the provided payload into an instance of <typeparamref name="T"/>.
-        /// Return <see langword="null"/> if payload is empty and <typeparamref name="T"/> is nullable.
+        /// Asynchronously deserializes the specified string payload into an instance of <typeparamref name="T"/>.
+        /// Returns <see langword="null"/> if payload is empty and <typeparamref name="T"/> is nullable.
         /// </summary>
         /// <typeparam name="T">The type to deserialize into.</typeparam>
         /// <param name="payload">The string payload to deserialize.</param>
+        /// <param name="token">Optional cancellation token.</param>
         /// <returns>An instance of <typeparamref name="T"/> deserialized from the payload.</returns>
         /// <exception cref="NotSupportedException">Thrown when no serializer implementation is available.</exception>
-        T? Deserialize<T>(string payload);
+        Task<T?> DeserializeAsync<T>(string payload, CancellationToken token = default);
     }
 }

@@ -3,12 +3,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace Zentient.Core
+namespace Zentient.Facades
 {
     using System;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Threading;
+    using Zentient.Execution;
 
     /// <summary>
     /// Execution context factory and implementation.
