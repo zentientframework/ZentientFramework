@@ -1,10 +1,17 @@
-﻿using System;
+﻿// <copyright file="DefaultUnboundedCodeCache.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
 
 namespace Zentient.Codes
 {
+    using System;
+    using System.Collections.Concurrent;
+
     /// <summary>
-    /// Default unbounded concurrent cache implementation used by <see cref="CodeRegistry"/>.
-    /// Uses per-TDefinition generic tables for reduced allocations.
+    /// The default unbounded in-memory cache implementation.
+    /// It uses a thread-safe <see cref="ConcurrentDictionary{TKey, TValue}"/> for each code definition type
+    /// and never automatically evicts items.
     /// </summary>
     internal sealed class DefaultUnboundedCodeCache : ICodeCache
     {
@@ -16,7 +23,7 @@ namespace Zentient.Codes
 
         /// <inheritdoc/>
         public ICode<TDefinition> AddOrGet<TDefinition>(string key, Func<string, ICode<TDefinition>> factory) where TDefinition : ICodeDefinition
-            => CodeTable<TDefinition>.Table.GetOrAdd(key, factory);
+        => CodeTable<TDefinition>.Table.GetOrAdd(key, factory);
 
         /// <inheritdoc/>
         public void Clear<TDefinition>() where TDefinition : ICodeDefinition
@@ -27,9 +34,6 @@ namespace Zentient.Codes
         /// <inheritdoc/>
         public void ClearAll()
         {
-            // Clear all generic tables by iterating types currently present in registry maps.
-            // This is conservative; individual per-type clears are more efficient when caller knows the type.
-            // We cannot enumerate all possible generic instantiations—so clear known global registries instead.
             CodeRegistry.ClearAllPerTypeTables();
         }
     }

@@ -1,30 +1,33 @@
-﻿namespace Zentient.Codes
+﻿// <copyright file="CodeValidationOptions.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Codes
 {
     using System.Text.RegularExpressions;
 
     /// <summary>
-    /// Validation options to tune key/display validation behavior.
+    /// Configuration object for defining global validation rules applied to <see cref="ICode"/> instances.
+    /// Configured via <see cref="CodeValidation.Configure(CodeValidationOptions)"/>.
     /// </summary>
     public sealed class CodeValidationOptions
     {
         /// <summary>
-        /// Gets or sets a value indicating whether validation of display names is disabled.
+        /// Gets or sets a value indicating whether checks for empty or whitespace display names should be skipped.
+        /// Defaults to <c>false</c> (validation is enabled).
         /// </summary>
-        /// <remarks>When set to <see langword="true"/>, display names will not be checked for validity.
-        /// This may allow invalid or non-standard display names to be used. Use with caution if display name integrity
-        /// is required.</remarks>
         public bool DisableDisplayNameValidation { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether whitespace characters are permitted in configuration keys.
+        /// Gets or sets a value indicating whether whitespace characters are allowed within the canonical <see cref="ICode.Key"/>.
+        /// Defaults to <c>false</c> (whitespace is not allowed).
         /// </summary>
-        /// <remarks>When enabled, keys containing spaces, tabs, or other whitespace characters will be
-        /// accepted and processed. Disabling this option enforces stricter key validation, which may help prevent
-        /// accidental formatting errors or inconsistencies in configuration files.</remarks>
         public bool AllowWhitespaceInKey { get; set; }
 
         /// <summary>
-        /// Gets or sets the regular expression used to validate or match keys.
+        /// Gets or sets a specific <see cref="Regex"/> pattern that the canonical <see cref="ICode.Key"/> must match.
+        /// If <c>null</c>, no pattern matching is performed.
         /// </summary>
         public Regex? KeyPattern { get; set; }
     }

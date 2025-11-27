@@ -1,49 +1,39 @@
-﻿using System;
-
-namespace Zentient.Codes
+﻿namespace Zentient.Codes
 {
+    using System;
+
     /// <summary>
-    /// Abstraction for a cache that stores canonical <see cref="ICode{TDefinition}"/> instances.
-    /// Implementations should be thread-safe and efficient.
+    /// Defines the contract for a caching mechanism responsible for storing and retrieving canonical <see cref="ICode{TDefinition}"/> instances.
     /// </summary>
     public interface ICodeCache
     {
         /// <summary>
-        /// Attempts to retrieve the code definition associated with the specified key.
+        /// Attempts to retrieve a code instance by its key for a specific definition type.
         /// </summary>
-        /// <typeparam name="TDefinition">The type of code definition to retrieve. Must implement <see cref="ICodeDefinition"/>.</typeparam>
-        /// <param name="key">The key that identifies the code definition to retrieve. Cannot be null.</param>
-        /// <param name="code">When this method returns, contains the code definition associated with the specified key if found;
-        /// otherwise, <see langword="null"/>. This parameter is passed uninitialized.</param>
-        /// <returns><see langword="true"/> if a code definition with the specified key is found; otherwise, <see
-        /// langword="false"/>.</returns>
+        /// <typeparam name="TDefinition">The expected type of the code definition.</typeparam>
+        /// <param name="key">The code's canonical key.</param>
+        /// <param name="code">When the method returns, contains the code instance; otherwise, <c>null</c>.</param>
+        /// <returns><c>true</c> if the code was found; otherwise, <c>false</c>.</returns>
         bool TryGet<TDefinition>(string key, out ICode<TDefinition>? code) where TDefinition : ICodeDefinition;
 
         /// <summary>
-        /// Gets the existing code instance associated with the specified key, or adds a new one using the provided
-        /// factory if none exists.
+        /// Atomically adds a new code instance created by the factory function, or retrieves the existing one if a key collision occurs.
         /// </summary>
-        /// <remarks>If a code instance for the given key already exists, the factory is not invoked and
-        /// the existing instance is returned. This method is thread-safe.</remarks>
-        /// <typeparam name="TDefinition">The type of code definition associated with the code instance. Must implement <see cref="ICodeDefinition"/>.</typeparam>
-        /// <param name="key">The unique key used to identify the code instance. Cannot be null.</param>
-        /// <param name="factory">A function that creates a new <see cref="ICode{TDefinition}"/> instance for the specified key if one does
-        /// not already exist. Cannot be null.</param>
-        /// <returns>The <see cref="ICode{TDefinition}"/> instance associated with the specified key. If no instance exists, a
-        /// new one is created and returned.</returns>
+        /// <typeparam name="TDefinition">The code definition type.</typeparam>
+        /// <param name="key">The code's canonical key.</param>
+        /// <param name="factory">The function to create the new code instance if one does not exist.</param>
+        /// <returns>The newly added or existing code instance.</returns>
         ICode<TDefinition> AddOrGet<TDefinition>(string key, Func<string, ICode<TDefinition>> factory) where TDefinition : ICodeDefinition;
 
         /// <summary>
-        /// Removes all items associated with the specified code definition type.
+        /// Clears all cached code instances associated with a specific code definition type.
         /// </summary>
-        /// <typeparam name="TDefinition">The type of code definition whose items will be cleared. Must implement <see cref="ICodeDefinition"/>.</typeparam>
+        /// <typeparam name="TDefinition">The code definition type whose cache should be cleared.</typeparam>
         void Clear<TDefinition>() where TDefinition : ICodeDefinition;
 
         /// <summary>
-        /// Removes all items from the collection.
+        /// Clears all code caches across all registered code definition types.
         /// </summary>
-        /// <remarks>After calling this method, the collection will be empty. This operation may affect
-        /// any observers or listeners that depend on the collection's contents.</remarks>
         void ClearAll();
     }
 }

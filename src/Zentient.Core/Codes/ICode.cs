@@ -1,42 +1,40 @@
-﻿namespace Zentient.Codes
+﻿// <copyright file="ICode.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Codes
 {
     using System;
     using Zentient.Metadata;
 
     /// <summary>
-    /// Non-generic read-only surface that represents a canonical code instance.
+    /// The non-generic base interface for all structured code instances. 
+    /// Provides access to the canonical key and essential metadata.
     /// </summary>
     public interface ICode
     {
-        /// <summary>
-        /// Gets the stable key that identifies the code within a definition type.
-        /// Keys are compared using ordinal semantics.
-        /// </summary>
+        /// <summary>The canonical, unique string identifier for the code (e.g., "HTTP_200").</summary>
         string Key { get; }
 
-        /// <summary>
-        /// Gets an optional human-friendly display name for the code.
-        /// </summary>
+        /// <summary>An optional human-readable display name for the code (e.g., "OK").</summary>
         string? DisplayName { get; }
 
-        /// <summary>
-        /// Gets arbitrary metadata attached to the code.
-        /// </summary>
+        /// <summary>Immutable diagnostic and contextual metadata associated with the code.</summary>
         IMetadata Metadata { get; }
 
-        /// <summary>
-        /// Gets the <see cref="Type"/> of the definition associated with this code.
-        /// </summary>
+        /// <summary>The exact runtime type of the domain-specific definition object.</summary>
         Type DefinitionType { get; }
 
         /// <summary>
-        /// Gets the unique identifier for the definition, composed of the type's full name and key.
-        /// This is a lightweight computed string and may be used for logging or debugging.
+        /// A developer-friendly string identifier combining the definition type name and the key.
+        /// Format: <c>{DefinitionType.Name}:{Key}</c>.
         /// </summary>
         string Identifier => $"{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
 
         /// <summary>
-        /// Gets the canonical identifier for the definition, formatted as a unique string.
+        /// A fully qualified, canonical identifier for the code instance, suitable for global identification.
+        /// Format: <c>code:{DefinitionType.FullName}:{Key}</c>.
         /// </summary>
         string CanonicalId => $"code:{DefinitionType.FullName ?? DefinitionType.Name}:{Key}";
     }

@@ -1,4 +1,9 @@
-﻿namespace Zentient.Codes
+﻿// <copyright file="Code{TDefinition}.cs" author="Zentient Framework Team">
+// (c) 2025 Zentient Framework Team. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace Zentient.Codes
 {
     using System;
     using System.Collections.Concurrent;
@@ -6,9 +11,10 @@
     using Zentient.Metadata;
 
     /// <summary>
-    /// Canonical, cached, immutable code implementation.
+    /// The immutable, canonical representation of a structured code instance.
+    /// This type is the core value object managed by the <see cref="CodeRegistry"/> and its cache.
     /// </summary>
-    /// <typeparam name="TDefinition">The definition type used by the code.</typeparam>
+    /// <typeparam name="TDefinition">The domain-specific definition type associated with this code.</typeparam>
     [DebuggerDisplay("{Key,nq}")]
     public sealed class Code<TDefinition> : ICode<TDefinition>, IInternalCode
         where TDefinition : ICodeDefinition
@@ -26,33 +32,30 @@
         /// <inheritdoc/>
         public IMetadata Metadata { get; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// The domain-specific definition object that characterizes this code instance.
+        /// </summary>
         public TDefinition Definition { get; }
 
         /// <inheritdoc/>
         public Type DefinitionType => typeof(TDefinition);
 
-        /// <inheritdoc/>
+        // Internal property for fast fingerprint access without reflection
         string? IInternalCode.Fingerprint => _fingerprint;
 
-        /// <summary>
-        /// Initializes a new instance of the Code class with the specified key, definition, metadata, and optional
-        /// display name.
-        /// </summary>
-        /// <param name="key">The unique key that identifies the code instance. Cannot be null or empty.</param>
-        /// <param name="definition">The definition object that describes the code. Cannot be null.</param>
-        /// <param name="metadata">The metadata associated with the code instance. If null, an empty metadata object is used.</param>
-        /// <param name="displayName">An optional display name for the code instance. May be null.</param>
+        // Internal constructor used by the GetOrCreate factory
         internal Code(string key, TDefinition definition, IMetadata metadata, string? displayName)
         {
             CodeValidation.ValidateKey(key);
             CodeValidation.ValidateDefinition(definition);
             CodeValidation.ValidateDisplay(displayName);
 
+            // Optimization: StringPool ensures only one instance of the key string exists globally
             Key = StringPool.Get(key);
             Definition = definition;
             Metadata = metadata ?? Zentient.Metadata.Metadata.Empty;
             DisplayName = displayName;
+
             _fingerprint = ComputeDefinitionFingerprint(definition);
             _hashCode = ComputeHashCode();
         }
@@ -68,18 +71,29 @@
             }
         }
 
+        // Determines the canonical identity of the definition object.
         private static string? ComputeDefinitionFingerprint(TDefinition definition)
         {
             if (definition is ICodeDefinitionFingerprint f) return f.IdentityFingerprint;
-            return definition.GetType().FullName;
+            return definition.GetType().FullName; // Fallback to full type name
         }
 
         /// <inheritdoc/>
         public override string ToString() => Key;
 
         /// <summary>
-        /// Get or create canonical instance per (TDefinition, key) using metadata (default).
+        /// The primary factory method for creating or retrieving a canonical <see cref="ICode{TDefinition}"/> instance.
+        /// This method guarantees that for a given <paramref name="key"/> and equivalent <paramref name="definition"/>, 
+        /// only a single instance exists in the cache (the "canonical" instance).
         /// </summary>
+        /// <param name="key">The unique canonical key for the code.</param>
+        /// <param name="definition">The domain definition to associate with the code.</param>
+        /// <param name="metadata">Optional diagnostic metadata.</param>
+        /// <param name="displayName">Optional human-readable display name.</param>
+        /// <param name="equivalenceComparer">Optional custom comparer to check if a new definition is equivalent to an existing one.</param>
+        /// <param name="allowOverride">If <c>true</c> and a non-equivalent definition is detected, the operation proceeds (but the cached instance is not replaced in the default cache).</param>
+        /// <returns>The canonical cached <see cref="ICode{TDefinition}"/> instance.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if an existing code is found with a non-equivalent definition and <paramref name="allowOverride"/> is <c>false</c>.</exception>
         public static ICode<TDefinition> GetOrCreate(
             string key,
             TDefinition definition,
@@ -88,54 +102,39 @@
             Func<TDefinition, TDefinition, bool>? equivalenceComparer = null,
             bool allowOverride = false)
         {
-            // Validate inputs early
             CodeValidation.ValidateKey(key);
             CodeValidation.ValidateDefinition(definition);
             CodeValidation.ValidateDisplay(displayName);
 
-            // Fast local cache reference
             var cache = Cache;
 
+            // 1. Check cache for key (Fast Path)
             if (cache.TryGet<TDefinition>(key, out var existing))
             {
-                // If there's an equivalence comparer provided, use it; otherwise use registry comparer.
-                if (equivalenceComparer != null)
+                // 2. Validate definition equivalence if a hit occurs
+                bool equivalent = equivalenceComparer != null
+                    ? equivalenceComparer(existing!.Definition, definition)
+                    : CodeRegistry.DefinitionComparer.AreEquivalent(existing!.Definition!, definition);
+
+                if (!equivalent && !allowOverride)
                 {
-                    if (!equivalenceComparer(existing!.Definition, definition))
-                    {
-                        if (!allowOverride)
-                        {
-                            throw new InvalidOperationException($"A Code with key '{key}' already exists for definition type '{typeof(TDefinition).FullName}' with a non-equivalent definition.");
-                        }
-                        // allowOverride == true: we do not replace existing instance in this cache implementation.
-                        // Hosts that require replacement should provide a custom ICodeCache implementation.
-                    }
-                }
-                else
-                {
-                    if (!CodeRegistry.DefinitionComparer.AreEquivalent(existing!.Definition!, definition))
-                    {
-                        if (!allowOverride)
-                        {
-                            throw new InvalidOperationException($"A Code with key '{key}' already exists for definition type '{typeof(TDefinition).FullName}' with a different definition. Provide an equivalence comparer or enable allowOverride (note: allowOverride does not replace cached instances in the default cache).");
-                        }
-                        // allowOverride == true: same note as above.
-                    }
+                    throw new InvalidOperationException($"A Code with key '{key}' already exists for definition type '{typeof(TDefinition).FullName}' with a different definition. Provide an equivalence comparer or enable allowOverride (note: allowOverride does not replace cached instances in the default cache).");
                 }
 
-                // Notify reuse and return existing canonical instance
                 CodeRegistry.OnCodeReused(existing);
                 return existing;
             }
 
-            // Deduplicate definition by fingerprint before creating the Code instance to reduce memory.
+            // 3. Definition Fingerprinting (Slow Path: Cache miss)
             var fp = ComputeDefinitionFingerprint(definition) ?? string.Empty;
+            // Get or add the canonical *definition* instance for this type/fingerprint
             var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
+            // 4. Create and cache the canonical *code* instance
             var created = new Code<TDefinition>(key, canonicalDef, metadata ?? Zentient.Metadata.Metadata.Empty, displayName);
             var added = cache.AddOrGet<TDefinition>(created.Key, _ => created);
 
-            // If the returned instance is the one we created then it's new; otherwise it's a reused existing.
+            // 5. Fire events based on whether we won the race (ReferenceEquals)
             if (ReferenceEquals(added, created))
             {
                 CodeRegistry.OnCodeCreated(added);
@@ -149,8 +148,12 @@
         }
 
         /// <summary>
-        /// Fast-path GetOrCreate that avoids metadata merging and allocations beyond lookup/creation.
+        /// A lightweight, performance-optimized factory method for creating or retrieving a canonical instance, 
+        /// which avoids the overhead of optional parameters (metadata, display name, custom comparers).
         /// </summary>
+        /// <param name="key">The unique canonical key for the code.</param>
+        /// <param name="definition">The domain definition to associate with the code.</param>
+        /// <returns>The canonical cached <see cref="ICode{TDefinition}"/> instance.</returns>
         public static ICode<TDefinition> GetOrCreateFast(string key, TDefinition definition)
         {
             CodeValidation.ValidateKey(key);
@@ -165,14 +168,22 @@
             var fp = ComputeDefinitionFingerprint(definition) ?? string.Empty;
             TDefinition canonicalDefinition = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
+            // Optimization: factory delegate for AddOrGet minimizes allocations on cache miss
             var added = Cache.AddOrGet<TDefinition>(key, _ => new Code<TDefinition>(key, canonicalDefinition, Zentient.Metadata.Metadata.Empty, null));
             CodeRegistry.OnCodeCreated(added);
+
             return added;
         }
 
         /// <summary>
-        /// TryGetOrCreate variant that avoids exceptions.
+        /// Safe, non-throwing version of <see cref="GetOrCreate(string, TDefinition, IMetadata?, string?, Func{TDefinition, TDefinition, bool}?, bool)"/>.
+        /// Catches any validation or consistency errors and returns <c>false</c>.
         /// </summary>
+        /// <param name="key">The unique canonical key for the code.</param>
+        /// <param name="definition">The domain definition to associate with the code.</param>
+        /// <param name="code">When the method returns, contains the resulting code instance; otherwise, <c>null</c>.</param>
+        /// <param name="allowOverride">If <c>true</c>, relaxes the definition equivalence check for existing codes.</param>
+        /// <returns><c>true</c> if the code was successfully retrieved or created; otherwise, <c>false</c>.</returns>
         public static bool TryGetOrCreate(string key, TDefinition definition, out ICode<TDefinition> code, bool allowOverride = false)
         {
             try
@@ -188,28 +199,52 @@
         }
 
         /// <summary>
-        /// TryCreate only when a code doesn't exist. Returns false if an existing code is present.
+        /// Attempts to create and cache a *new* code instance, failing if a code with the same key already exists.
+        /// Useful for guaranteeing the first registration wins.
         /// </summary>
+        /// <param name="key">The unique canonical key for the code.</param>
+        /// <param name="definition">The domain definition to associate with the code.</param>
+        /// <param name="code">When the method returns, contains the newly created or existing code instance.</param>
+        /// <returns><c>true</c> if a new instance was created and added to the cache; <c>false</c> if an existing code was found.</returns>
         public static bool TryCreate(string key, TDefinition definition, out ICode<TDefinition> code)
         {
             CodeValidation.ValidateKey(key);
             CodeValidation.ValidateDefinition(definition);
 
+            // Check cache for existence
             if (Cache.TryGet<TDefinition>(key, out var existing) && existing is ICode<TDefinition> existingCode)
             {
                 code = existingCode;
                 return false;
             }
 
+            // Proceed with creation if cache miss
             var fp = ComputeDefinitionFingerprint(definition) ?? string.Empty;
             var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
+
             var created = new Code<TDefinition>(key, canonicalDef, Zentient.Metadata.Metadata.Empty, null);
+
+            // Use AddOrGet to handle the race condition
             code = Cache.AddOrGet<TDefinition>(created.Key, _ => created);
-            CodeRegistry.OnCodeCreated(code);
-            return true;
+
+            // Determine if we created it (won the race)
+            if (ReferenceEquals(code, created))
+            {
+                CodeRegistry.OnCodeCreated(code);
+                return true;
+            }
+
+            // Lost the race, an existing one was returned
+            CodeRegistry.OnCodeReused(code);
+            return false;
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Determines if the current code instance is equivalent to another object.
+        /// Equality is based on: Key, Definition Type, and Definition Fingerprint.
+        /// </summary>
+        /// <param name="obj">The object to compare against.</param>
+        /// <returns><c>true</c> if the objects are equivalent; otherwise, <c>false</c>.</returns>
         public override bool Equals(object? obj)
         {
             if (ReferenceEquals(this, obj)) return true;
@@ -218,31 +253,49 @@
                 if (!string.Equals(Key, other.Key, StringComparison.Ordinal)) return false;
                 if (DefinitionType != other.DefinitionType) return false;
 
-                // fast fingerprint extraction via internal interface
+                // Fast check using the internal fingerprint
                 if (other is IInternalCode ic)
                 {
                     return string.Equals(_fingerprint, ic.Fingerprint, StringComparison.Ordinal);
                 }
 
-                // Fallback: same key + same definition type is considered equal in absence of fingerprints.
+                // Fallback (less efficient) check
                 return true;
             }
             return false;
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Returns the hash code for the code instance, computed from the Key, Definition Type, and Definition Fingerprint.
+        /// </summary>
+        /// <returns>A hash code for the current object.</returns>
         public override int GetHashCode() => _hashCode;
 
-        // Internal small string pool to reduce repeated allocations for high-cardinality systems.
+        // --- String Pooling -----------------------------------------------------
+
         private static class StringPool
         {
+            // ConcurrentDictionary is used as a thread-safe, low-allocation string pool.
             private static readonly ConcurrentDictionary<string, string> s_pool = new(StringComparer.Ordinal);
+
+            /// <summary>
+            /// Retrieves a canonical, interned instance of the provided string key.
+            /// </summary>
+            /// <param name="key">The key string.</param>
+            /// <returns>The canonical string instance from the pool.</returns>
+            /// <exception cref="ArgumentException">Thrown if the key is empty or whitespace.</exception>
+            /// <exception cref="ArgumentNullException">Thrown if the key is null.</exception>
             public static string Get(string key)
             {
                 if (key is null) throw new ArgumentNullException(nameof(key));
                 if (key.Length == 0) throw new ArgumentException("Key cannot be empty.", nameof(key));
                 if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Key cannot be whitespace.", nameof(key));
+
+                // Fast path: TryGetValue saves a delegate allocation and dictionary overhead if the key is present.
                 if (s_pool.TryGetValue(key, out var existing)) return existing;
+
+                // Slow path: AddOrGet ensures the string is interned into the pool.
+                // Using the key as the factory value avoids a closure delegate allocation.
                 return s_pool.GetOrAdd(key, key);
             }
         }
