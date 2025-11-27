@@ -7,6 +7,7 @@ namespace Zentient.Codes
 {
     using System;
     using System.Text.RegularExpressions;
+    using Zentient;
 
     /// <summary>
     /// Static utility class responsible for configuring and enforcing validation rules for 
@@ -24,7 +25,7 @@ namespace Zentient.Codes
         /// <exception cref="ArgumentNullException">Thrown if options is null.</exception>
         public static void Configure(CodeValidationOptions options)
         {
-            if (options is null) throw new ArgumentNullException(nameof(options));
+            Guard.AgainstNull(options);
             lock (s_optionsLock) { s_options = options; }
         }
 
@@ -35,7 +36,7 @@ namespace Zentient.Codes
         /// <exception cref="ArgumentNullException">Thrown if pattern is null.</exception>
         public static void ConfigureKeyPattern(string pattern)
         {
-            if (pattern is null) throw new ArgumentNullException(nameof(pattern));
+            Guard.AgainstNull(pattern);
             Configure(new CodeValidationOptions { KeyPattern = new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline) });
         }
 
@@ -45,19 +46,23 @@ namespace Zentient.Codes
         /// <param name="key">The key to validate.</param>
         /// <exception cref="ArgumentNullException">Thrown if key is null.</exception>
         /// <exception cref="ArgumentException">Thrown if the key fails any configured rule (e.g., whitespace, regex mismatch).</exception>
-        public static void ValidateKey(string key)
+        public static string ValidateKey(string? key)
         {
-            if (key is null) throw new ArgumentNullException(nameof(key));
+            // Ensure non-null quickly using Guard to provide consistent DX and messages.
+            key = Guard.AgainstNull(key, nameof(key));
+
+            // If whitespace in key is disallowed, enforce non-empty and non-whitespace.
             if (!s_options.AllowWhitespaceInKey)
             {
-                if (key.Length == 0) throw new ArgumentException("Key cannot be empty.", nameof(key));
-                if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Key cannot be whitespace.", nameof(key));
+                key = Guard.AgainstWhitespace(key, nameof(key))!;
             }
 
             if (s_options.KeyPattern is not null)
             {
                 if (!s_options.KeyPattern.IsMatch(key)) throw new ArgumentException("Key does not match required format.", nameof(key));
             }
+
+            return key;
         }
 
         /// <summary>
@@ -66,12 +71,14 @@ namespace Zentient.Codes
         /// </summary>
         /// <param name="displayName">The display name to validate (can be null).</param>
         /// <exception cref="ArgumentException">Thrown if the display name fails any configured rule.</exception>
-        public static void ValidateDisplay(string? displayName)
+        public static string? ValidateDisplay(string? displayName)
         {
-            if (s_options.DisableDisplayNameValidation) return;
-            if (displayName is null) return;
-            if (displayName.Length == 0) throw new ArgumentException("Display name cannot be empty.", nameof(displayName));
-            if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("Display name cannot be whitespace.", nameof(displayName));
+            if (s_options.DisableDisplayNameValidation) return displayName;
+            if (displayName is null) return null;
+
+            // Guard.AgainstWhitespace will throw for empty/whitespace values.
+            displayName = Guard.AgainstWhitespace(displayName, nameof(displayName));
+            return displayName;
         }
 
         /// <summary>
@@ -79,9 +86,9 @@ namespace Zentient.Codes
         /// </summary>
         /// <param name="definition">The definition object to validate.</param>
         /// <exception cref="ArgumentNullException">Thrown if the definition is null.</exception>
-        public static void ValidateDefinition(ICodeDefinition definition)
+        public static void ValidateDefinition(ICodeDefinition? definition)
         {
-            if (definition is null) throw new ArgumentNullException(nameof(definition));
+            Guard.AgainstNull(definition, nameof(definition));
         }
     }
 }

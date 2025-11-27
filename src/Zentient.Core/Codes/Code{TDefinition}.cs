@@ -8,6 +8,7 @@ namespace Zentient.Codes
     using System;
     using System.Collections.Concurrent;
     using System.Diagnostics;
+    using System.Runtime.CompilerServices;
     using Zentient.Metadata;
 
     /// <summary>
@@ -38,10 +39,24 @@ namespace Zentient.Codes
         public TDefinition Definition { get; }
 
         /// <inheritdoc/>
-        public Type DefinitionType => typeof(TDefinition);
+        public Type DefinitionType
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return typeof(TDefinition);
+            }
+        }
 
         // Internal property for fast fingerprint access without reflection
-        string? IInternalCode.Fingerprint => _fingerprint;
+        string? IInternalCode.Fingerprint
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return _fingerprint;
+            }
+        }
 
         // Internal constructor used by the GetOrCreate factory
         internal Code(string key, TDefinition definition, IMetadata metadata, string? displayName)
@@ -72,6 +87,7 @@ namespace Zentient.Codes
         }
 
         // Determines the canonical identity of the definition object.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static string? ComputeDefinitionFingerprint(TDefinition definition)
         {
             if (definition is ICodeDefinitionFingerprint f) return f.IdentityFingerprint;
@@ -79,6 +95,7 @@ namespace Zentient.Codes
         }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override string ToString() => Key;
 
         /// <summary>
@@ -145,6 +162,11 @@ namespace Zentient.Codes
             }
 
             return added;
+        }
+
+        public CodeBuilder<TDefinition> ToBuilder()
+        {
+            return Code.NewBuilder<TDefinition>(this);
         }
 
         /// <summary>
@@ -269,6 +291,7 @@ namespace Zentient.Codes
         /// Returns the hash code for the code instance, computed from the Key, Definition Type, and Definition Fingerprint.
         /// </summary>
         /// <returns>A hash code for the current object.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() => _hashCode;
 
         // --- String Pooling -----------------------------------------------------

@@ -6,6 +6,8 @@
 namespace Zentient.Codes
 {
     using System;
+    using System.Runtime.CompilerServices;
+    using Zentient.Exceptions;
     using Zentient.Metadata;
 
     /// <summary>
@@ -37,6 +39,8 @@ namespace Zentient.Codes
         public static ICode<TDefinition> From<TDefinition>(string key, TDefinition? definition = default, IMetadata? metadata = null, string? displayName = null)
             where TDefinition : ICodeDefinition
         {
+            key = Guard.AgainstNullOrWhitespace(key);
+
             if (definition is null)
             {
                 try
@@ -56,7 +60,7 @@ namespace Zentient.Codes
                 }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException($"Failed to resolve definition for key '{key}': {ex.Message}", ex);
+                    throw new DefaultConstructorMissingException(key, ex.Message);
                 }
             }
 
@@ -70,8 +74,17 @@ namespace Zentient.Codes
         /// </summary>
         /// <typeparam name="TDefinition">The type of code definition to be used by the builder. Must implement <see cref="ICodeDefinition"/>.</typeparam>
         /// <returns>A new <see cref="CodeBuilder{TDefinition}"/> instance configured for the specified code definition type.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static CodeBuilder<TDefinition> NewBuilder<TDefinition>()
             where TDefinition : ICodeDefinition
             => new CodeBuilder<TDefinition>();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static CodeBuilder<TDefinition> NewBuilder<TDefinition>(ICode<TDefinition> code)
+            where TDefinition : ICodeDefinition
+        {
+            var builder = new CodeBuilder<TDefinition>(code);
+            return builder;
+        }
     }
 }

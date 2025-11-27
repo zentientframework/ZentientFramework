@@ -7,6 +7,7 @@ namespace Zentient.Codes
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// The default unbounded in-memory cache implementation.
@@ -16,25 +17,23 @@ namespace Zentient.Codes
     internal sealed class DefaultUnboundedCodeCache : ICodeCache
     {
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet<TDefinition>(string key, out ICode<TDefinition>? code) where TDefinition : ICodeDefinition
-        {
-            return CodeTable<TDefinition>.Table.TryGetValue(key, out code);
-        }
+            => CodeTable<TDefinition>.Table.TryGetValue(key, out code);
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICode<TDefinition> AddOrGet<TDefinition>(string key, Func<string, ICode<TDefinition>> factory) where TDefinition : ICodeDefinition
-        => CodeTable<TDefinition>.Table.GetOrAdd(key, factory);
+            => CodeTable<TDefinition>.Table.GetOrAdd(key, factory);
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear<TDefinition>() where TDefinition : ICodeDefinition
-        {
-            CodeTable<TDefinition>.Table.Clear();
-        }
+            => CodeTable<TDefinition>.Table.Clear();
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ClearAll()
-        {
-            CodeRegistry.ClearAllPerTypeTables();
-        }
+            => CodeRegistry.ClearAllPerTypeTables();
     }
 }

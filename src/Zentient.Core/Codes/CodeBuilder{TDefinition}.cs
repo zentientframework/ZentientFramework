@@ -11,6 +11,7 @@
 namespace Zentient.Codes
 {
     using System;
+    using System.Runtime.CompilerServices;
     using Zentient.Metadata;
 
     // --- Builder ------------------------------------------------------------
@@ -28,14 +29,31 @@ namespace Zentient.Codes
         private IMetadata _metadata = Metadata.Empty;
 
         /// <summary>
+        /// Initializes a new instance of the CodeBuilder class using the specified code definition.
+        /// </summary>
+        /// <param name="code">An object that provides the code definition, key, display name, and metadata to initialize the builder.
+        /// Cannot be null.</param>
+        internal CodeBuilder(ICode<TDefinition>? code = null)
+        {
+            _definition = code is null
+                ? default(TDefinition)
+                : code.Definition;
+            _key = code?.Key;
+            _display = code?.DisplayName;
+            _metadata = code?.Metadata ?? Metadata.Empty;
+        }
+
+        /// <summary>
         /// Specifies the required domain-specific definition object that characterizes this code.
         /// </summary>
         /// <param name="definition">The concrete definition object.</param>
         /// <returns>The builder instance for chaining.</returns>
         /// <exception cref="ArgumentNullException">Thrown if the definition is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICodeBuilder<TDefinition> WithDefinition(TDefinition definition)
         {
-            _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+            CodeValidation.ValidateDefinition(definition);
+            _definition = definition;
             return this;
         }
 
@@ -45,10 +63,10 @@ namespace Zentient.Codes
         /// <param name="key">The unique string key (e.g., "HTTP_200", "PRODUCT_NOT_FOUND").</param>
         /// <returns>The builder instance for chaining.</returns>
         /// <exception cref="ArgumentException">Thrown if the key is invalid based on <see cref="CodeValidation"/> rules.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICodeBuilder<TDefinition> WithKey(string key)
         {
-            CodeValidation.ValidateKey(key);
-            _key = key;
+            _key = CodeValidation.ValidateKey(key);
             return this;
         }
 
@@ -58,10 +76,10 @@ namespace Zentient.Codes
         /// <param name="displayName">The display name (e.g., "OK", "Resource Missing").</param>
         /// <returns>The builder instance for chaining.</returns>
         /// <exception cref="ArgumentException">Thrown if the display name is invalid based on <see cref="CodeValidation"/> rules.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICodeBuilder<TDefinition> WithDisplayName(string displayName)
         {
-            CodeValidation.ValidateDisplay(displayName);
-            _display = displayName;
+            _display = CodeValidation.ValidateDisplay(displayName);
             return this;
         }
 
@@ -73,9 +91,14 @@ namespace Zentient.Codes
         /// <returns>The builder instance for chaining.</returns>
         public ICodeBuilder<TDefinition> WithMetadata(string key, object? value)
         {
+            key = CodeValidation.ValidateKey(key);
+
             // NOTE: This implementation re-allocates IMetadata on every call which is inefficient.
             // For production-grade performance, consider refactoring to use a mutable IMetadataBuilder internally.
-            if (_metadata is IMetadata m) m.Set(key, value);
+            if (_metadata is IMetadata m)
+            {
+                m.Set(key, value);
+            }
             else
             {
                 var b = Metadata.NewBuilder();
@@ -94,14 +117,15 @@ namespace Zentient.Codes
         public ICodeBuilder<TDefinition> WithMetadata(IMetadata metadata)
         {
             if (metadata is null) return this;
+
             if (_metadata is IMetadata mm)
             {
-                Zentient.Metadata.Metadata.DeepMerge(mm, metadata);
+                Metadata.DeepMerge(mm, metadata);
             }
             else
             {
                 var b = Metadata.NewBuilder();
-                var mergedMetadata = Zentient.Metadata.Metadata.DeepMerge(metadata, _metadata);
+                var mergedMetadata = Metadata.DeepMerge(metadata, _metadata);
                 b.SetRange(mergedMetadata);
                 _metadata = b.Build();
             }
@@ -115,6 +139,7 @@ namespace Zentient.Codes
         /// <param name="key">The metadata key.</param>
         /// <param name="value">The metadata value.</param>
         /// <returns>The builder instance for chaining.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICodeBuilder<TDefinition> WithMetadataIf(bool condition, string key, object? value)
         {
             if (condition) WithMetadata(key, value);
@@ -127,6 +152,7 @@ namespace Zentient.Codes
         /// <param name="condition">If <see langword="true"/>, the metadata is merged.</param>
         /// <param name="metadata">The metadata object to merge.</param>
         /// <returns>The builder instance for chaining.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ICodeBuilder<TDefinition> WithMetadataIf(bool condition, IMetadata metadata)
         {
             if (condition) WithMetadata(metadata);
@@ -141,12 +167,13 @@ namespace Zentient.Codes
         /// <exception cref="InvalidOperationException">Thrown if either the key or definition is missing.</exception>
         public ICode<TDefinition> Build()
         {
-            if (_definition is null) throw new InvalidOperationException("Definition must be provided before building a Code.");
-            if (string.IsNullOrWhiteSpace(_key)) throw new InvalidOperationException("Key must be provided before building a Code.");
+            CodeValidation.ValidateDefinition(_definition);
+            var key = CodeValidation.ValidateKey(_key);
             var meta = _metadata ?? Metadata.Empty;
+            var display = CodeValidation.ValidateDisplay(_display);
 
             // Uses the central factory method, ensuring caching and definition fingerprinting.
-            return Code<TDefinition>.GetOrCreate(_key!, _definition!, meta, _display);
+            return Code<TDefinition>.GetOrCreate(key, _definition!, meta, display);
         }
     }
 }
