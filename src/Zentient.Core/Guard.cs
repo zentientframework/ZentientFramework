@@ -130,7 +130,7 @@ namespace Zentient
         /// <returns>The supplied reference (not null).</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="value"/> is <see langword="null"/>.</exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T AgainstNull<T>(T? value, [CallerArgumentExpression("value")] string? parameterName = null) where T : class
+        public static T AgainstNull<T>(T? value, [CallerArgumentExpression("value")] string? parameterName = null)
         {
             var name = parameterName ?? nameof(value);
             ArgumentNullException.ThrowIfNull(value, name);
