@@ -8,7 +8,7 @@ namespace Zentient.ComponentModel
     using System;
     using System.ComponentModel;
     using System.Globalization;
-
+    using System.Runtime.CompilerServices;
     using Zentient.Core;
 
     /// <summary>
@@ -17,10 +17,12 @@ namespace Zentient.ComponentModel
     public sealed class IdTypeConverter<T> : TypeConverter
     {
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
             => sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
         {
             if (value is string s)
@@ -31,6 +33,7 @@ namespace Zentient.ComponentModel
         }
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
         {
             if (destinationType == typeof(string) && value is Id<T> id)

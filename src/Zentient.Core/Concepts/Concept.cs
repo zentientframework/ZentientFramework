@@ -7,6 +7,7 @@ namespace Zentient.Concepts
 {
     using System;
     using System.Diagnostics;
+    using System.Runtime.CompilerServices;
     using Zentient.Metadata;
 
     /// <summary>
@@ -27,7 +28,7 @@ namespace Zentient.Concepts
         /// required.</param>
         /// <param name="tags">Optional metadata tags associated with the concept. If null, an empty metadata collection is used.</param>
         /// <returns>An <see cref="IConcept"/> representing the newly created concept with the specified properties.</returns>
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IConcept Create(string key, string displayName, string? description = null, IMetadata? tags = null)
             => new InternalConcept(Guid.NewGuid(), key, displayName, description, tags ?? Zentient.Metadata.Metadata.Empty, validate: true);
 
@@ -40,6 +41,7 @@ namespace Zentient.Concepts
         /// <param name="description">An optional description providing additional details about the concept. May be null.</param>
         /// <param name="tags">Optional metadata tags associated with the concept. If null, an empty metadata collection is used.</param>
         /// <returns>An <see cref="IConcept"/> instance representing the newly created concept with the specified properties.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IConcept CreateIdentifiable(Guid guidId, string key, string displayName, string? description = null, IMetadata? tags = null)
             => new InternalConcept(guidId, key, displayName, description, tags ?? Zentient.Metadata.Metadata.Empty, validate: true);
 
