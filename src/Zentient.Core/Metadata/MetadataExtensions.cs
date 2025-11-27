@@ -6,6 +6,7 @@
 namespace Zentient.Metadata
 {
     using System;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Provides extension methods for the IMetadata interface to facilitate conditional setting and transformation of
@@ -27,6 +28,7 @@ namespace Zentient.Metadata
         /// <returns>The metadata instance with the key set to the specified value if it was missing; otherwise, the original
         /// metadata instance.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="meta"/> or <paramref name="key"/> is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IMetadata SetIfMissing(this IMetadata meta, string key, object? value)
         {
             if (meta is null) throw new ArgumentNullException(nameof(meta));
@@ -45,6 +47,7 @@ namespace Zentient.Metadata
         /// <returns>The original metadata instance if the key does not exist; otherwise, a new metadata instance with the
         /// updated value.</returns>
         /// <exception cref="ArgumentNullException">Thrown if <paramref name="meta"/> or <paramref name="key"/> is null.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IMetadata ReplaceOnly(this IMetadata meta, string key, object? value)
         {
             if (meta is null) throw new ArgumentNullException(nameof(meta));

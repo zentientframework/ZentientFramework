@@ -12,6 +12,7 @@ namespace Zentient.Metadata
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Static factory and helpers for <see cref="IMetadata"/> instances.
@@ -33,6 +34,7 @@ namespace Zentient.Metadata
         /// Use <see cref="Builder.Build"/> to obtain an immutable <see cref="IMetadata"/> snapshot.
         /// </summary>
         /// <returns>A new <see cref="Builder"/> instance.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Builder NewBuilder() => new Builder();
 
         /// <summary>
@@ -41,6 +43,7 @@ namespace Zentient.Metadata
         /// <param name="key">Metadata key.</param>
         /// <param name="value">Metadata value.</param>
         /// <returns>An <see cref="IMetadata"/> snapshot containing the single key/value pair.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IMetadata From(string key, object? value) => NewBuilder().Set(key, value).Build();
 
         /// <summary>
