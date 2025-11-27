@@ -1,4 +1,6 @@
-﻿namespace Zentient.Codes
+﻿using System;
+
+namespace Zentient.Codes
 {
     /// <summary>
     /// Default unbounded concurrent cache implementation used by <see cref="CodeRegistry"/>.
@@ -13,10 +15,8 @@
         }
 
         /// <inheritdoc/>
-        public ICode<TDefinition> AddOrGet<TDefinition>(string key, ICode<TDefinition> created) where TDefinition : ICodeDefinition
-        {
-            return CodeTable<TDefinition>.Table.GetOrAdd(key, created);
-        }
+        public ICode<TDefinition> AddOrGet<TDefinition>(string key, Func<string, ICode<TDefinition>> factory) where TDefinition : ICodeDefinition
+            => CodeTable<TDefinition>.Table.GetOrAdd(key, factory);
 
         /// <inheritdoc/>
         public void Clear<TDefinition>() where TDefinition : ICodeDefinition

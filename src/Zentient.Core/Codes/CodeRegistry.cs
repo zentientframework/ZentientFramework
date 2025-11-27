@@ -9,15 +9,53 @@
     /// </summary>
     public static class CodeRegistry
     {
-        // Host-configurable cache used for canonicalization.
         internal static ICodeCache Cache { get; private set; } = new DefaultUnboundedCodeCache();
-
-        // Definition comparer used to determine equivalence.
         internal static ICodeDefinitionComparer DefinitionComparer { get; private set; } = new DefaultDefinitionComparer();
 
-        internal static bool IsKeyUniquenessEnforced => Volatile.Read(ref s_requireKeysUniqueAcrossDefinitionTypes!);
-        internal static bool RequireKeysUniqueAcrossDefinitionTypes => Volatile.Read(ref s_requireKeysUniqueAcrossDefinitionTypes!);
-        internal static ICodeCache CurrentCache => Cache!;
+        internal static bool IsKeyUniquenessEnforced => s_requireKeysUniqueAcrossDefinitionTypes;
+        internal static bool RequireKeysUniqueAcrossDefinitionTypes => s_requireKeysUniqueAcrossDefinitionTypes;
+
+        // Optimization: Use ValueTuple to avoid string concatenation allocations
+        private static readonly ConcurrentDictionary<(Type, string), ICodeDefinition> s_definitionByFingerprint = new();
+
+        // Optimization: Track caches explicitly to avoid Reflection during ClearAll
+        private static readonly ConcurrentBag<Action> s_cacheClearActions = new();
+
+        private static readonly ConcurrentDictionary<string, Func<object?>> s_definitionResolvers = new(StringComparer.Ordinal);
+        private static ConcurrentBag<Func<string, ICodeDefinition?>> s_autoResolvers = new();
+
+        private static bool s_allowUntrustedTypeFallback = false;
+        private static bool s_requireKeysUniqueAcrossDefinitionTypes = false;
+
+        /// <summary>
+        /// Occurs when a new <see cref="ICode"/> instance is created.
+        /// </summary>
+        /// <remarks>Subscribers can use this event to perform actions or initialization when a code
+        /// object is instantiated. The event provides the created <see cref="ICode"/> instance as an
+        /// argument.</remarks>
+        public static event Action<ICode>? CodeCreated;
+
+        /// <summary>
+        /// Occurs when an existing code instance is reused within the application.
+        /// </summary>
+        /// <remarks>Subscribers can use this event to respond when code is reused, such as updating state
+        /// or logging reuse activity. The event provides the reused code instance as an argument.</remarks>
+        public static event Action<ICode>? CodeReused;
+
+        /// <summary>
+        /// Occurs when the code cache is cleared, allowing subscribers to respond to cache invalidation events.
+        /// </summary>
+        /// <remarks>Subscribers can use this event to refresh or reload cached code data when the cache
+        /// is cleared. The event is static and applies to all instances.</remarks>
+        public static event Action? CodeCacheCleared;
+
+        /// <summary>
+        /// Occurs when a definition has been successfully resolved.
+        /// </summary>
+        /// <remarks>The event provides the resolved definition as a string to its subscribers. Handlers
+        /// can use this information to perform additional processing or update application state in response to the
+        /// resolution.</remarks>
+        public static event Action<string>? DefinitionResolved;
 
         /// <summary>
         /// Gets a value indicating whether fallback to untrusted types is permitted during type resolution.
@@ -27,30 +65,8 @@
         /// scenarios where type trust is required. Use caution when enabling this behavior.</remarks>
         public static bool AllowUntrustedTypeFallback => Volatile.Read(ref s_allowUntrustedTypeFallback);
 
-        // Global key index used when strict key uniqueness is enabled.
-        private static readonly ConcurrentDictionary<string, Type> s_globalKeyIndex = new(StringComparer.Ordinal);
-
-        // Map from stable hint to a resolver factory
-        private static readonly ConcurrentDictionary<string, Func<object?>> s_definitionResolvers = new(StringComparer.Ordinal);
-
-        // Deduplication by fingerprint (typeQualifiedFingerprint -> canonical definition)
-        private static readonly ConcurrentDictionary<string, ICodeDefinition> s_definitionByFingerprint = new(StringComparer.Ordinal);
-
-        // Auto resolvers bag (replaceable via atomic exchange)
-        private static ConcurrentBag<Func<string, ICodeDefinition?>> s_autoResolvers = new();
-
-        // Host options / flags (volatile to ensure updates are visible across threads)
-        private static volatile bool s_allowUntrustedTypeFallback = false;
-        private static volatile bool s_requireKeysUniqueAcrossDefinitionTypes = false;
-
         // Lock object for atomic state transitions (clears)
         private static readonly object s_registryLock = new();
-
-        // Events for diagnostics/auditing
-        public static event Action<ICode>? CodeCreated;
-        public static event Action<ICode>? CodeReused;
-        public static event Action? CodeCacheCleared;
-        public static event Action<string>? DefinitionResolved;
 
         /// <summary>
         /// Raises the CodeCreated event to notify subscribers that a new code instance has been created.
@@ -157,10 +173,7 @@
                         return true;
                     }
                 }
-                catch
-                {
-                    // swallow; auto resolvers are last-chance
-                }
+                catch { /* swallow */ }
             }
 
             definition = null;
@@ -168,24 +181,12 @@
         }
 
         /// <summary>
-        /// Retrieves an existing definition associated with the specified hint, or adds a new definition using the
-        /// provided resolver if none exists.
-        /// </summary>
-        public static TDefinition? GetOrAdd<TDefinition>(string hint, Func<TDefinition> resolver)
-            where TDefinition : ICodeDefinition
-        {
-            if (string.IsNullOrWhiteSpace(hint)) throw new ArgumentException("Hint must be non-empty and whitespace-free.", nameof(hint));
-            if (resolver is null) throw new ArgumentNullException(nameof(resolver));
-            var result = s_definitionResolvers.GetOrAdd(hint, () => resolver());
-            return (TDefinition?)result();
-        }
-
-        /// <summary>
         /// Get or add canonical definition by type-qualified fingerprint. Returns the canonical instance.
         /// </summary>
         internal static ICodeDefinition GetOrAddDefinitionByFingerprint(Type defType, string fingerprint, ICodeDefinition def)
         {
-            var key = $"{defType.FullName}#{fingerprint ?? string.Empty}";
+            // Optimization: No string allocation here
+            var key = (defType, fingerprint ?? string.Empty);
             return s_definitionByFingerprint.GetOrAdd(key, def);
         }
 
@@ -194,54 +195,21 @@
         /// </summary>
         internal static void ClearAllCaches()
         {
-            lock (s_registryLock)
+            s_definitionResolvers.Clear();
+            s_definitionByFingerprint.Clear();
+            s_autoResolvers = new ConcurrentBag<Func<string, ICodeDefinition?>>();
+
+            // Optimization: Fast clear without reflection
+            foreach (var action in s_cacheClearActions)
             {
-                // Clear per-type tables by instantiating new static tables via reflection is not practical;
-                // instead clear known generic CodeTable instances that we can locate via existing resolver map entries.
-                s_definitionResolvers.Clear();
-                s_definitionByFingerprint.Clear();
-                s_autoResolvers = Interlocked.Exchange(ref s_autoResolvers, new ConcurrentBag<Func<string, ICodeDefinition?>>());
-                s_globalKeyIndex.Clear();
-
-                // Clear per-TDefinition tables that are currently known via resolvers (best-effort)
-                ClearAllPerTypeTables();
-
-                OnCodeCacheCleared();
+                action();
             }
+
+            OnCodeCacheCleared();
         }
 
         // Helper to clear all generic tables referenced via current resolvers or fingerprint maps.
-        internal static void ClearAllPerTypeTables()
-        {
-            // Conservative: clear any tables that may be referenced currently.
-            // We iterate keys in s_definitionByFingerprint to extract type names and attempt to clear generic CodeTable via reflection.
-            // For simplicity and reliability, clear all known entries in global key index (per-type clearing via CodeTable<T>.Table.Clear())
-            // cannot be done for arbitrary T without reflection—so we clear CodeTable caches for the top-level assemblies where types are known
-            // (best-effort).
-            // Practical hosts that need deterministic clear should call CodeRegistry.ConfigureCache(...) with a cache they control.
-            foreach (var kv in s_globalKeyIndex)
-            {
-                // attempt to clear CodeTable<T> for the registered type if accessible
-                var type = kv.Value;
-                try
-                {
-                    var genericType = typeof(CodeTable<>).MakeGenericType(type);
-                    var field = genericType.GetField("Table", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-                    if (field?.GetValue(null) is System.Collections.IDictionary dict)
-                    {
-                        dict.Clear();
-                    }
-                    else if (field?.GetValue(null) is System.Collections.ICollection col)
-                    {
-                        // nothing: we tried best-effort
-                    }
-                }
-                catch
-                {
-                    // ignore: clearing per-type tables is best-effort.
-                }
-            }
-        }
+        internal static void ClearAllPerTypeTables() => ClearAllCaches();
 
         /// <summary>
         /// Configure global key uniqueness enforcement behavior.

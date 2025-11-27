@@ -14,11 +14,7 @@
         where TDefinition : ICodeDefinition
     {
         private static ICodeCache Cache => CodeRegistry.Cache;
-
-        // Fingerprint cached for this instance
         private readonly string? _fingerprint;
-
-        // precomputed hash code
         private readonly int _hashCode;
 
         /// <inheritdoc/>
@@ -137,7 +133,7 @@
             var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
             var created = new Code<TDefinition>(key, canonicalDef, metadata ?? Zentient.Metadata.Metadata.Empty, displayName);
-            var added = cache.AddOrGet<TDefinition>(created.Key, created);
+            var added = cache.AddOrGet<TDefinition>(created.Key, _ => created);
 
             // If the returned instance is the one we created then it's new; otherwise it's a reused existing.
             if (ReferenceEquals(added, created))
@@ -160,18 +156,16 @@
             CodeValidation.ValidateKey(key);
             CodeValidation.ValidateDefinition(definition);
 
-            if (Cache.TryGet<TDefinition>(key, out var existing))
+            if (Cache.TryGet<TDefinition>(key, out var existing) && existing is ICode<TDefinition> existingDefinition)
             {
-                CodeRegistry.OnCodeReused(existing);
+                CodeRegistry.OnCodeReused(existingDefinition);
                 return existing;
             }
 
-            // Deduplicate by fingerprint quickly
             var fp = ComputeDefinitionFingerprint(definition) ?? string.Empty;
-            var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
+            TDefinition canonicalDefinition = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
 
-            var created = new Code<TDefinition>(key, canonicalDef, Zentient.Metadata.Metadata.Empty, null);
-            var added = Cache.AddOrGet<TDefinition>(created.Key, created);
+            var added = Cache.AddOrGet<TDefinition>(key, _ => new Code<TDefinition>(key, canonicalDefinition, Zentient.Metadata.Metadata.Empty, null));
             CodeRegistry.OnCodeCreated(added);
             return added;
         }
@@ -201,16 +195,16 @@
             CodeValidation.ValidateKey(key);
             CodeValidation.ValidateDefinition(definition);
 
-            if (Cache.TryGet<TDefinition>(key, out var existing))
+            if (Cache.TryGet<TDefinition>(key, out var existing) && existing is ICode<TDefinition> existingCode)
             {
-                code = existing;
+                code = existingCode;
                 return false;
             }
 
             var fp = ComputeDefinitionFingerprint(definition) ?? string.Empty;
             var canonicalDef = (TDefinition)CodeRegistry.GetOrAddDefinitionByFingerprint(typeof(TDefinition), fp, definition);
             var created = new Code<TDefinition>(key, canonicalDef, Zentient.Metadata.Metadata.Empty, null);
-            code = Cache.AddOrGet<TDefinition>(created.Key, created);
+            code = Cache.AddOrGet<TDefinition>(created.Key, _ => created);
             CodeRegistry.OnCodeCreated(code);
             return true;
         }
